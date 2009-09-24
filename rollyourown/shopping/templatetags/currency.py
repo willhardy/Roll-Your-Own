@@ -9,7 +9,21 @@ register = template.Library()
 def currency(value):
     #string = locale.currency(value, grouping=True)
     #return template.mark_safe(string)
-    return template.mark_safe(money_format(value, curr="$", html=True))
+    return template.mark_safe(money_format(value, curr="$", neg='(', trailneg=")"))
+
+@register.filter()
+def html_currency(value):
+    #string = locale.currency(value, grouping=True)
+    #return template.mark_safe(string)
+    return template.mark_safe(money_format(value, curr="$", html=True, neg='(', trailneg=")"))
+
+@register.filter()
+def short_currency(value):
+    output = template.mark_safe(money_format(value, places=2, curr="$", neg='(', trailneg=")"))
+    if output.endswith(".00"):
+        return output[:-3]
+    else:
+        return output
 
 def money_format(value, places=2, curr='', sep=',', dp='.',
              pos='', neg='-', trailneg='', html=False):
@@ -47,7 +61,8 @@ def money_format(value, places=2, curr='', sep=',', dp='.',
     result = []
     digits = map(str, digits)
     build, next = result.append, digits.pop
-    build('</span>')
+    if html:
+        build('</span>')
     if html:
         curr = '<span class="currency">%s</span>' % curr
         neg = neg.replace("-", "&#8722;")
@@ -72,7 +87,8 @@ def money_format(value, places=2, curr='', sep=',', dp='.',
             build(sep)
     build(curr)
     build(neg if sign else pos)
-    build('<span class="money">')
+    if html:
+        build('<span class="money">')
     return ''.join(reversed(result))
 
 

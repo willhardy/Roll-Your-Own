@@ -5,6 +5,7 @@
     They are not required to use the shopping framework.
 """
 
+import os
 from datetime import datetime
 from django.db import models
 from rollyourown.shopping import purchase
@@ -15,7 +16,7 @@ friendly_id = FriendlyID()
 class ActiveObjectManager(models.Manager):
     " Provides easy access to active objects. "
     def active(self):
-        return self.get_query_set().filter(is_active=True)
+        return self.get_query_set().filter(active=True)
 
 class ProductManager(ActiveObjectManager):
     " Provides access to a number of common features "
