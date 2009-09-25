@@ -20,13 +20,14 @@ class ActiveObjectManager(models.Manager):
 
 class ProductManager(ActiveObjectManager):
     " Provides access to a number of common features "
+    use_for_related_fields = True
     def popular(self):
         " Returns query set of the most popular items. "
         raise NotImplemented
 
     def featured(self):
         " Returns Query Set of Featured Products "
-        raise NotImplemented
+        return self.get_query_set().filter(featured=True)
 
 class Product(models.Model):
     # Basic product information
@@ -63,6 +64,13 @@ class Product(models.Model):
     
     def __unicode__(self):
         return self.name or self.sku
+
+    @property
+    def availability(self):
+        if self.available_from:
+            return self.available_from.strftime('%x')
+        else:
+            return 'in stock'
 
 class ProductCategory(models.Model):
     " A simple way to categories products. "
