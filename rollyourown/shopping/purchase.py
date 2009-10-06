@@ -219,7 +219,7 @@ class ItemsDescriptor(object):
                     break
         # Otherwise, just use django to get the queryset
         else:
-            queryset = getattr(model_instance, self.items.attribute).all()
+            queryset = getattr(model_instance, self.items.attribute).all().select_related()
 
         for i in queryset:
             purchase_instance = model_instance._shopping
