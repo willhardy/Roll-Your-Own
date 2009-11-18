@@ -48,7 +48,12 @@ def get(model, request, create=True):
         else:
             return None
 
-    return get_model(model)._default_manager.get(pk=pk)
+    shopping_model = get_model(model)
+    try:
+        return shopping_model._default_manager.get(pk=pk)
+    except shopping_model.DoesNotExist:
+        del request.session[SHOPPING_MODEL_SESSION_KEY % model.__name__]
+        return get(model, request, create)
 
 
 def get_previous_from_session(model, request):

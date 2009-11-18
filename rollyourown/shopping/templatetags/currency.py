@@ -56,6 +56,7 @@ def money_format(value, places=2, curr='', sep=',', dp='.',
     """
     if value is None or isinstance(value, basestring):
         return value
+    value = Decimal(value)
     q = Decimal(10) ** -places      # 2 places --> '0.01'
     sign, digits, exp = value.quantize(q).as_tuple()
     result = []
