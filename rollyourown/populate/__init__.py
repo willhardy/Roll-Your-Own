@@ -1,3 +1,4 @@
+
 from rollyourown.populate.data import DEFAULT_GENERATOR_FUNCTIONS
 
 from rollyourown.populate.registration import registry, Populator
@@ -22,3 +23,8 @@ def populate_models(models):
 
     for model, populator in populators.items():
         populator.populate_many_to_many()
+
+
+# Version information
+__version__ = filter(str.isdigit, "$Revision$")
+__authors__ = ["Will Hardy <andrew@aeracode.org>"]

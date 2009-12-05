@@ -1,6 +1,4 @@
 
-version = filter(str.isdigit, "$Revision$")
-if version:
-    __version__ = version
+__version__ = filter(str.isdigit, "$Revision$")
 __authors__ = ["Will Hardy <andrew@aeracode.org>"]
 

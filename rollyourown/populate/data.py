@@ -140,9 +140,10 @@ def generate_image(field, instance, counter):
     directory = os.path.join(os.path.dirname(__file__), 'data_files')
     if 'logo' in field.name:
         directory = os.path.join(directory, 'logos')
-    filename_choices = os.listdir(directory)
+    filename_choices = [f for f in os.listdir(directory) if not f.startswith(".")]
     filename = random.choice(filename_choices)
     return (filename, ContentFile(open(os.path.join(directory, filename), "r").read()))
+
 def add_image_to_instance(field, instance, value):
     getattr(instance, field.name).save(save=False, *value)
 generate_image.add_to_instance = add_image_to_instance
@@ -161,7 +162,12 @@ def generate_reference(field, instance, counter):
 
 def generate_point(field, instance, counter):
     from django.contrib.gis.geos import Point
-    return Point(random.randint(-180, 180), random.randint(-90, 90))
+    x_around = 144.940
+    y_around = -37.814
+
+    x = x_around is not None and (x_around + (random.random() - 0.5)) or (random_random() - 0.5) * 360
+    y = y_around is not None and (y_around + (random.random() - 0.5)) or (random_randint() - 0.5) * 180
+    return Point(x, y)
 
 DEFAULT_GENERATOR_FUNCTIONS = {
     'CharField':  generate_chars,
