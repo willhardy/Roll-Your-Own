@@ -3,6 +3,7 @@
 from django.db.models import get_apps
 from datetime import datetime
 import logging
+from django.db import transaction
 
 # This is the name of the populate module n an app, eg 'populate' for populate.py
 POPULATE_MODULE_NAME = "populate"
@@ -123,11 +124,16 @@ class Populator(object):
                     else:
                         setattr(instance, field.name, value)
     
+        transaction.enter_transaction_management()
+        transaction.managed(True)
         try:
             instance.save()
-        except Exception, e:
-            logging.debug(repr(instance.__dict__))
-            raise e
+        except:
+            transaction.rollback()
+            #logging.debug(repr(instance.__dict__))
+            #raise
+        else:
+            transaction.commit()
     
         return instance
 
