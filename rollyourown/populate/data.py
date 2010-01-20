@@ -141,7 +141,7 @@ def generate_image(field, instance, counter):
     if 'logo' in field.name:
         directory = os.path.join(directory, 'logos')
     filename_choices = [f for f in os.listdir(directory) if not f.startswith(".")]
-    filename = random.choice(filename_choices)
+    filename = random.choice([f for f in filename_choices if (not f.startswith(".") and "." in f)])
     return (filename, ContentFile(open(os.path.join(directory, filename), "r").read()))
 
 def add_image_to_instance(field, instance, value):
