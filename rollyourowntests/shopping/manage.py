@@ -3,7 +3,7 @@ import os
 import sys
 
 # Setup the path (could have been PYTHONPATH)
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), '../..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 #project_dir = lambda path: os.path.join(PROJECT_ROOT, path)
 sys.path = [PROJECT_ROOT] + sys.path
 

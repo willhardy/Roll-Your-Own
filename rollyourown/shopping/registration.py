@@ -56,7 +56,7 @@ def purchase_proxy_factory(model, purchase_class):
 
     def init(self, *args, **kwargs):
         model.__init__(self, *args, **kwargs)
-        self._shopping = purchase_class(model_instance=self)
+        self._shopping = purchase_class(instance=self)
 
     attrs = {'Meta': Meta, '__init__': init, '__module__': model.__module__ }
     name = 'Shopping%s' % model.__name__

@@ -29,8 +29,7 @@ class ExtraDescriptor(object):
             raise AttributeError('Can only be accessed via an instance.')
 
         if self.extra.name not in obj.__dict__:
-            model_instance = obj._model_instance
-            obj.__dict__[self.extra.name] = BoundExtra(model_instance, self.extra)
+            obj.__dict__[self.extra.name] = BoundExtra(obj, self.extra)
         return obj.__dict__[self.extra.name]
 
     def __set__(self, obj, value):
@@ -38,14 +37,13 @@ class ExtraDescriptor(object):
 
 
 class BoundExtra(object):
-    def __init__(self, instance, extra):
+    def __init__(self, purchase_instance, extra):
         self._extra        = extra
-        self._instance     = instance
-        purchase_instance  = instance._shopping
-        self._verbose_name = get_referenced_method(self._extra.verbose_name, self._instance, purchase_instance)
-        self._amount       = get_referenced_method(self._extra.amount, self._instance, purchase_instance)
-        self._description  = get_referenced_method(self._extra.description, self._instance, purchase_instance)
-        self._included     = get_referenced_method(self._extra.included, self._instance, purchase_instance)
+        self._instance     = purchase_instance.instance
+        self._verbose_name = get_referenced_method(self._extra.verbose_name, purchase_instance)
+        self._amount       = get_referenced_method(self._extra.amount, purchase_instance)
+        self._description  = get_referenced_method(self._extra.description, purchase_instance)
+        self._included     = get_referenced_method(self._extra.included, purchase_instance)
 
     verbose_name = property(lambda s:s.resolve_value(s._verbose_name))
     amount       = property(lambda s:Decimal(s.resolve_value(s._amount))) # Might want to validate for a more usable error message when amount is not set
@@ -102,11 +100,12 @@ class Extra(object):
         setattr(cls, name, ExtraDescriptor(self))
 
 
-def get_referenced_method(value, model_instance, purchase_instance):
+def get_referenced_method(value, purchase_instance):
     """ This allows instance objects to be referenced by string.
         If the value of an attribute is a string eg "model.my_funky_method", 
         and this method exists on the model instance, then the method is used.
     """
+    model_instance = purchase_instance.instance
     if isinstance(value, basestring):
         if value.startswith("self.") and hasattr(purchase_instance, value[5:]):
             return getattr(purchase_instance, value[5:])
@@ -123,8 +122,7 @@ class TotalDescriptor(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError('Can only be accessed via an instance.')
-        model_instance = obj._model_instance
-        return self.total.get_total(model_instance)
+        return self.total.get_total(obj)
 
     def __set__(self, obj, value):
         pass
@@ -142,8 +140,7 @@ class Total(object):
         self.name = name
         setattr(cls, name, TotalDescriptor(self))
 
-    def get_total(self, instance):
-        purchase_instance = instance._shopping
+    def get_total(self, purchase_instance):
 
         if self.attributes:
             items = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._items if name in self.attributes])
@@ -209,29 +206,40 @@ class ItemsDescriptor(object):
         if self.items.name in obj._cache:
             return obj._cache[self.items.name]
 
-        model_instance = obj._model_instance
+        model_instance = obj.instance
 
         # If this is a ManyToMany field with a "through=" model, use that instead of the final model
         try:
             field = model_instance._meta.get_field(self.items.attribute)
-            for f in field.rel.through_model._meta.fields:
+            # NB: Different versions of django have a different name for the through_model
+            if field.rel.through is not None and hasattr(field.rel.through, '_meta'):
+                if field.rel.through._meta.auto_created:
+                    raise AttributeError
+                through_model = field.rel.through
+            else:
+                through_model = field.rel.through_model
+            #if hasattr(field.rel, 'through_model'):
+                #through_model = 
+            # Only continue for manually created (eg "through=") through models
+            #if field.rel.through._meta.auto_created:
+                #raise AttributeError
+            #through_model = getattr(field.rel, 'through_model', field.rel.through)
+            for f in through_model._meta.fields:
                 if hasattr(f,'rel') and f.rel and f.rel.to == field.related.model:
-                    queryset = field.rel.through_model._default_manager.filter(**{f.name: model_instance})
+                    queryset = through_model._default_manager.filter(**{f.name: model_instance})
                     break
         # Otherwise, just use django to get the queryset
-        except FieldDoesNotExist, AttributeError:
+        except (FieldDoesNotExist, AttributeError):
             queryset = getattr(model_instance, self.items.attribute).all().select_related()
 
         for i in queryset:
-            purchase_instance = model_instance._shopping
-            amount = self.resolve_value(self.get_item_unit_total(self.items.item_amount_from, i, model_instance), model_instance)
+            amount = self.resolve_value(self.get_item_unit_total(self.items.item_amount_from, i, obj), model_instance)
             i.AMOUNT = amount
 
         obj._cache[self.items.name] = queryset
         return queryset
 
-    def get_item_unit_total(self, value, rel_instance, model_instance):
-        purchase_instance = model_instance._shopping
+    def get_item_unit_total(self, value, rel_instance, purchase_instance):
 
         if isinstance(value, basestring):
             if value.startswith("self.") and hasattr(purchase_instance, value[5:]):
@@ -294,10 +302,10 @@ class ModelPurchaseBase(type):
 
 class ModelPurchase(object):
     __metaclass__ = ModelPurchaseBase
-    _model_instance = None
+    instance = None
 
-    def __init__(self, model_instance):
-        self._model_instance = model_instance
+    def __init__(self, instance):
+        self.instance = instance
         self._cache = {}
 
 

@@ -10,6 +10,9 @@ from datetime import datetime
 from django.db import models
 from rollyourown.shopping import purchase
 from rollyourown.shopping.utils import FriendlyID
+import logging
+
+logging.warning("Use of abstract classes is currently discouraged.")
 
 friendly_id = FriendlyID()
 
