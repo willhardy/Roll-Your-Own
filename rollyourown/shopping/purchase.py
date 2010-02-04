@@ -61,9 +61,7 @@ class BoundExtra(object):
     # Might want to validate for a more usable error message when amount is not set
     @property
     def amount(self):
-        return FormattedDecimal(self.resolve_value(self._amount), 
-                    locale=self._purchase_instance._locale, 
-                    currency=self._purchase_instance._currency)
+        return FormattedDecimal(self.resolve_value(self._amount), purchase_instance=self._purchase_instance) 
 
     def resolve_value(self, value):
         """ Generic accessor returning a value, calling it if possible. 
@@ -147,31 +145,54 @@ class TotalDescriptor(object):
 
 
 # TODO: Move to a utils module in this package
-
+DEFAULT_DECIMAL_HTML = '<span class="money"><span class="currency">%(curr_sym)s</span>%(major)s<span class="cents">%(decimal_sym)s%(minor)s</span></span>'
 class FormattedDecimal(Decimal):
     """ A formatted decimal according to the given locale and currency. """
 
-    def __new__(cls, value=0, context=None, locale=None, currency=None):
+    def __new__(cls, value=0, context=None, purchase_instance=None):
         """ Create a new immutable Decimal object, adding our custom attributes. """
         obj = Decimal.__new__(cls, value, context)
-        obj.locale = locale or settings.LANGUAGE_CODE
-        obj.currency = currency or "USD"
-        if babel:
-            obj.locale = babel.core.Locale.parse(obj.locale, sep="-")
+        obj.initialise_context(purchase_instance)
         return obj
 
-    def html(self):
-        """ Provides a marked up version of the figure which can be easily styled. """
-        logging.debug("<em>%.02f</em>" % self)
-        return mark_safe("<em>%.02f</em>" % self)
-
-    def __unicode__(self):
+    def initialise_context(self, purchase_instance):
+        self.locale = purchase_instance._locale or settings.LANGUAGE_CODE
+        self.currency = purchase_instance._currency
+        self.HTML = purchase_instance._html or DEFAULT_DECIMAL_HTML
         if babel:
-            return babel.numbers.format_currency(self, self.currency, locale=self.locale)
+            self.locale = babel.core.Locale.parse(self.locale, sep="-")
+
+    def html(self):
+        """ Provides a marked up version of the figure which can be easily styled. 
+            eg 123.45 will be marked up as:
+            <span class="money"><span class="currency">$</span>123<span class="cents">.45</span></span>
+        """
+        value = self
+        sym = self.currency
+        group_sym = ","
+        decimal_sym = "."
+        if babel:
+            # TODO: use localised formatting
+            #format = self.locale.currency_formats[None]
+            curr_sym = self.locale.currency_symbols.get(self.currency, self.currency)
+            #group_sym = self.locale.number_symbols.get('group', group_sym)
+            decimal_sym = self.locale.number_symbols.get('decimal', decimal_sym)
+            value = babel.numbers.format_decimal(value, "#,##0.00", locale=self.locale)
+        major, minor = value.rsplit(decimal_sym, 1)
+        return mark_safe(self.HTML % locals())
+
+    def raw(self):
+        """ Return the decimal unformatted, as the Decimal class would have it. """
         return super(FormattedDecimal, self).__unicode__()
 
-    def __str__(self):
-        return super(FormattedDecimal, self).__str__()
+    def __unicode__(self):
+        """ Return a formatted version of the Decimal, using the preset locale and currency. """
+        if babel:
+            if self.currency:
+                return babel.numbers.format_currency(self, self.currency, locale=self.locale)
+            else:
+                return babel.numbers.format_decimal(self, "#,##0.00", locale=self.locale)
+        return super(FormattedDecimal, self).__unicode__()
 
 
 class Total(object):
@@ -224,7 +245,7 @@ class Total(object):
         if self.prevent_negative and total < 0:
             total = Decimal(0)
 
-        return FormattedDecimal(total, locale=purchase_instance._locale, currency=purchase_instance._currency)
+        return FormattedDecimal(total, purchase_instance=purchase_instance)
 
 
 class Items(object):
@@ -280,7 +301,7 @@ class ItemsDescriptor(object):
 
         for i in queryset:
             amount = self.resolve_value(self.get_item_unit_total(self.items.item_amount_from, i, obj), model_instance)
-            i.AMOUNT = FormattedDecimal(amount, locale=obj._locale, currency=obj._currency)
+            i.AMOUNT = FormattedDecimal(amount, purchase_instance=obj)
 
         obj._cache[self.items.name] = queryset
         return queryset
@@ -331,8 +352,21 @@ class ModelPurchaseBase(type):
 
         if 'Meta' in attrs:
             Meta = attrs.pop('Meta')
-            new_class.add_to_class('_locale', getattr(Meta, 'locale', None))
-            new_class.add_to_class('_currency', getattr(Meta, 'currency', None))
+
+            locale = getattr(Meta, 'locale', None)
+            if locale and locale.startswith("self."):
+                locale = attrs[locale[5:]]
+            new_class.add_to_class('_locale', locale)
+
+            currency = getattr(Meta, 'currency', None)
+            if currency and currency.startswith("self."):
+                currency = attrs[currency[5:]]
+            new_class.add_to_class('_currency', currency)
+
+            html = getattr(Meta, 'decimal_html', None)
+            if html and html.startswith("self."):
+                html = attrs[html[5:]]
+            new_class.add_to_class('_html', html)
 
         for key, value in attrs.items():
             if isinstance(value, Items):
@@ -353,12 +387,19 @@ class ModelPurchaseBase(type):
 
 class ModelPurchase(object):
     __metaclass__ = ModelPurchaseBase
-    instance = None
     _locale = None
     _currency = None
+    _html = None
 
     def __init__(self, instance):
         self.instance = instance
         self._cache = {}
 
+        # Call any callables now that we have the instance we need
+        if callable(self._locale):
+            self._locale = self._locale(instance)
+        if callable(self._currency):
+            self._currency = self._currency(instance)
+        if callable(self._html):
+            self._html = self._html(instance)
 
