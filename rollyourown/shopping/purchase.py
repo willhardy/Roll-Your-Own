@@ -7,6 +7,7 @@
 #       that if set turns negative values into zero.
 
 from django.db.models.base import ModelBase, Model
+from django.db.models.fields import FieldDoesNotExist
 from decimal import Decimal
 from django.core.exceptions import FieldError
 import logging
@@ -211,14 +212,14 @@ class ItemsDescriptor(object):
         model_instance = obj._model_instance
 
         # If this is a ManyToMany field with a "through=" model, use that instead of the final model
-        field = model_instance._meta.get_field(self.items.attribute)
-        if field.rel.through is not None:
+        try:
+            field = model_instance._meta.get_field(self.items.attribute)
             for f in field.rel.through_model._meta.fields:
                 if hasattr(f,'rel') and f.rel and f.rel.to == field.related.model:
                     queryset = field.rel.through_model._default_manager.filter(**{f.name: model_instance})
                     break
         # Otherwise, just use django to get the queryset
-        else:
+        except FieldDoesNotExist, AttributeError:
             queryset = getattr(model_instance, self.items.attribute).all().select_related()
 
         for i in queryset:
