@@ -11,6 +11,14 @@ from django.db.models.fields import FieldDoesNotExist
 from decimal import Decimal
 from django.core.exceptions import FieldError
 import logging
+from django.utils.safestring import mark_safe
+from django.conf import settings
+
+
+try:
+    import babel.numbers
+except ImportError:
+    babel = None
 
 
 class NotSet(object):
@@ -44,11 +52,18 @@ class BoundExtra(object):
         self._amount       = get_referenced_method(self._extra.amount, purchase_instance)
         self._description  = get_referenced_method(self._extra.description, purchase_instance)
         self._included     = get_referenced_method(self._extra.included, purchase_instance)
+        self._purchase_instance = purchase_instance
 
     verbose_name = property(lambda s:s.resolve_value(s._verbose_name))
-    amount       = property(lambda s:Decimal(s.resolve_value(s._amount))) # Might want to validate for a more usable error message when amount is not set
     description  = property(lambda s:s.resolve_value(s._description))
     included     = property(lambda s:s.resolve_value(s._included))
+
+    # Might want to validate for a more usable error message when amount is not set
+    @property
+    def amount(self):
+        return FormattedDecimal(self.resolve_value(self._amount), 
+                    locale=self._purchase_instance._locale, 
+                    currency=self._purchase_instance._currency)
 
     def resolve_value(self, value):
         """ Generic accessor returning a value, calling it if possible. 
@@ -131,6 +146,34 @@ class TotalDescriptor(object):
         pass
 
 
+# TODO: Move to a utils module in this package
+
+class FormattedDecimal(Decimal):
+    """ A formatted decimal according to the given locale and currency. """
+
+    def __new__(cls, value=0, context=None, locale=None, currency=None):
+        """ Create a new immutable Decimal object, adding our custom attributes. """
+        obj = Decimal.__new__(cls, value, context)
+        obj.locale = locale or settings.LANGUAGE_CODE
+        obj.currency = currency or "USD"
+        if babel:
+            obj.locale = babel.core.Locale.parse(obj.locale, sep="-")
+        return obj
+
+    def html(self):
+        """ Provides a marked up version of the figure which can be easily styled. """
+        logging.debug("<em>%.02f</em>" % self)
+        return mark_safe("<em>%.02f</em>" % self)
+
+    def __unicode__(self):
+        if babel:
+            return babel.numbers.format_currency(self, self.currency, locale=self.locale)
+        return super(FormattedDecimal, self).__unicode__()
+
+    def __str__(self):
+        return super(FormattedDecimal, self).__str__()
+
+
 class Total(object):
     """ Describes a set of items to be included.
     """
@@ -181,7 +224,7 @@ class Total(object):
         if self.prevent_negative and total < 0:
             total = Decimal(0)
 
-        return total
+        return FormattedDecimal(total, locale=purchase_instance._locale, currency=purchase_instance._currency)
 
 
 class Items(object):
@@ -237,7 +280,7 @@ class ItemsDescriptor(object):
 
         for i in queryset:
             amount = self.resolve_value(self.get_item_unit_total(self.items.item_amount_from, i, obj), model_instance)
-            i.AMOUNT = amount
+            i.AMOUNT = FormattedDecimal(amount, locale=obj._locale, currency=obj._currency)
 
         obj._cache[self.items.name] = queryset
         return queryset
@@ -286,6 +329,11 @@ class ModelPurchaseBase(type):
         items = {}
         totals = {}
 
+        if 'Meta' in attrs:
+            Meta = attrs.pop('Meta')
+            new_class.add_to_class('_locale', getattr(Meta, 'locale', None))
+            new_class.add_to_class('_currency', getattr(Meta, 'currency', None))
+
         for key, value in attrs.items():
             if isinstance(value, Items):
                 items[key] = value
@@ -306,10 +354,11 @@ class ModelPurchaseBase(type):
 class ModelPurchase(object):
     __metaclass__ = ModelPurchaseBase
     instance = None
+    _locale = None
+    _currency = None
 
     def __init__(self, instance):
         self.instance = instance
         self._cache = {}
-
 
 
