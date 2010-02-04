@@ -61,6 +61,9 @@ class BoundExtra(object):
         else:
             return value
 
+    def __unicode__(self):
+        return self.verbose_name
+
 
 class Extra(object):
     """ Describes an extra cost or discount, providing access to related information. 
