@@ -1,34 +1,55 @@
 # -*- coding: UTF-8 -*-
 
+"""
+    ModelPurchase class.
 
-# TODO:
-#       prevent negative amounts in totals, if desired.
-#       I imagine this could be just a prevent_negative=True attribute to the total, 
-#       that if set turns negative values into zero.
+    This class allows an ecommerce system to be defined using declarative
+    syntax, with several aspects of the system handled automatically:
+
+        * total calculation
+        * callable handling
+        * currency formatting
+
+    The organisation of this system is designed to be extremely flexible 
+    and promote good software design. See unit tests and online 
+    documentation for usage.
+
+    $Revision$
+
+"""
+
+import logging
+from decimal import Decimal
 
 from django.db.models.base import ModelBase, Model
 from django.db.models.fields import FieldDoesNotExist
-from decimal import Decimal
 from django.core.exceptions import FieldError
-import logging
-from django.utils.safestring import mark_safe
-from django.conf import settings
+from django.utils.translation import to_locale, check_for_language
+from django.utils.encoding import smart_str
 
-
-try:
-    import babel.numbers
-except ImportError:
-    babel = None
+from rollyourown.shopping.utils import FormattedDecimal
 
 
 class NotSet(object):
-    """ Singleton class to flag when a value hasn't been set (if None is a valid value).  """
+    " Singleton class to flag when a value hasn't been set "
     def __str__(self): return "NotSet"
     def __repr__(self): return self.__str__()
 NotSet = NotSet()
 
 
+#
+# Extra objects
+#
+# These describe single amounts that can be added or subtracted from a total,
+# such as delivery costs, adjustments or discounts. As their value can be set
+# to be calculated dynamically from the model instance, they need to be bound
+# at run time, to ensure they have access to the model in question. A 
+# descriptor is used to perform this task.
+# 
+
 class ExtraDescriptor(object):
+    " Descriptor to handle the lazy access and binding of Extra() objects "
+
     def __init__(self, extra):
         self.extra = extra
 
@@ -36,6 +57,7 @@ class ExtraDescriptor(object):
         if obj is None:
             raise AttributeError('Can only be accessed via an instance.')
 
+        # Bind and add the Extra object
         if self.extra.name not in obj.__dict__:
             obj.__dict__[self.extra.name] = BoundExtra(obj, self.extra)
         return obj.__dict__[self.extra.name]
@@ -45,23 +67,40 @@ class ExtraDescriptor(object):
 
 
 class BoundExtra(object):
+    """ An Extra object, bound to a model instance and therefore able to
+        calculate the relevant amount. 
+        The referenced method, function or value in Extra() can be 
+        resolved when called.
+
+        TODO: It may be worthwhile caching the resolved values, if
+              we're prepared to assume that the model instance will
+              no longer change.
+              This should be simply a case of moving resolve_value()
+              to the __init__ method.
+
+       TODO: Might want to do import time validation, so that a more
+             usable error message is shown when the amount is not set
+    """
     def __init__(self, purchase_instance, extra):
         self._extra        = extra
-        self._instance     = purchase_instance.instance
-        self._verbose_name = get_referenced_method(self._extra.verbose_name, purchase_instance)
-        self._amount       = get_referenced_method(self._extra.amount, purchase_instance)
-        self._description  = get_referenced_method(self._extra.description, purchase_instance)
-        self._included     = get_referenced_method(self._extra.included, purchase_instance)
         self._purchase_instance = purchase_instance
+        self._instance     = purchase_instance.instance
 
+        # Get values or functions to be resolved at run time
+        self._verbose_name = self.get_referenced_method('verbose_name')
+        self._amount       = self.get_referenced_method('amount')
+        self._description  = self.get_referenced_method('description')
+        self._included     = self.get_referenced_method('included')
+
+    # Resolve values of any callable attributes when accessed.
     verbose_name = property(lambda s:s.resolve_value(s._verbose_name))
     description  = property(lambda s:s.resolve_value(s._description))
     included     = property(lambda s:s.resolve_value(s._included))
 
-    # Might want to validate for a more usable error message when amount is not set
     @property
     def amount(self):
-        return FormattedDecimal(self.resolve_value(self._amount), purchase_instance=self._purchase_instance) 
+        return FormattedDecimal(self.resolve_value(self._amount), 
+                            purchase_instance=self._purchase_instance) 
 
     def resolve_value(self, value):
         """ Generic accessor returning a value, calling it if possible. 
@@ -77,14 +116,34 @@ class BoundExtra(object):
     def __unicode__(self):
         return self.verbose_name
 
+    def get_referenced_method(self, attribute):
+        """ This allows instance objects to be referenced by string. If the
+            value of an attribute is a string eg "model.my_funky_method", and
+            this method exists on the model instance, then the method is used.
+
+            TODO: This is only used in the BoundExtra module
+        """
+        value = getattr(self._extra, attribute)
+        purch_inst = self._purchase_instance
+        mod_inst = self._instance
+        if isinstance(value, basestring):
+            if value.startswith("self.") and hasattr(purch_inst, value[5:]):
+                return getattr(purch_inst, value[5:])
+            elif value.startswith("model.") and hasattr(mod_inst, value[6:]):
+                return getattr(mod_inst, value[6:])
+            
+        return value
+
 
 class Extra(object):
-    """ Describes an extra cost or discount, providing access to related information. 
-        Currently it stores a verbose_name (ie "tax"), description (ie "10% VAT") and amount ("10.23").
-        These attributes can of course point to functions, which provide the relevant inforamtion.
+    """ Describes an extra cost or discount, providing access to related
+        information. Currently it stores a verbose_name (ie "tax"), description
+        (ie "10% VAT") and amount ("10.23"). These attributes can of course
+        point to functions, which provide the relevant inforamtion.
     """
 
-    def __init__(self, verbose_name=NotSet, amount=NotSet, description=NotSet, included=False):
+    def __init__(self, verbose_name=NotSet, amount=NotSet, 
+                            description=NotSet, included=False):
         self.name = None
         self.verbose_name = verbose_name
         self.amount = amount
@@ -116,20 +175,16 @@ class Extra(object):
         setattr(cls, name, ExtraDescriptor(self))
 
 
-def get_referenced_method(value, purchase_instance):
-    """ This allows instance objects to be referenced by string.
-        If the value of an attribute is a string eg "model.my_funky_method", 
-        and this method exists on the model instance, then the method is used.
-    """
-    model_instance = purchase_instance.instance
-    if isinstance(value, basestring):
-        if value.startswith("self.") and hasattr(purchase_instance, value[5:]):
-            return getattr(purchase_instance, value[5:])
-        elif value.startswith("model.") and hasattr(model_instance, value[6:]):
-            return getattr(model_instance, value[6:])
-        
-    return value
-
+#
+# Total objects
+#
+# These describe a total that is to be calculated by the system, by summing
+# the amounts derived from Items or Extras. Like Extras, these need to be 
+# bound to a model instance at run time, and a descriptor is again used to
+# do this.
+# When accessed, the descriptor returns the calculated value directly as a
+# formatted Decimal.
+# 
 
 class TotalDescriptor(object):
     def __init__(self, total):
@@ -142,57 +197,6 @@ class TotalDescriptor(object):
 
     def __set__(self, obj, value):
         pass
-
-
-# TODO: Move to a utils module in this package
-DEFAULT_DECIMAL_HTML = '<span class="money"><span class="currency">%(curr_sym)s</span>%(major)s<span class="cents">%(decimal_sym)s%(minor)s</span></span>'
-class FormattedDecimal(Decimal):
-    """ A formatted decimal according to the given locale and currency. """
-
-    def __new__(cls, value=0, context=None, purchase_instance=None):
-        """ Create a new immutable Decimal object, adding our custom attributes. """
-        obj = Decimal.__new__(cls, value, context)
-        obj.initialise_context(purchase_instance)
-        return obj
-
-    def initialise_context(self, purchase_instance):
-        self.locale = purchase_instance._locale or settings.LANGUAGE_CODE
-        self.currency = purchase_instance._currency
-        self.HTML = purchase_instance._html or DEFAULT_DECIMAL_HTML
-        if babel:
-            self.locale = babel.core.Locale.parse(self.locale, sep="-")
-
-    def html(self):
-        """ Provides a marked up version of the figure which can be easily styled. 
-            eg 123.45 will be marked up as:
-            <span class="money"><span class="currency">$</span>123<span class="cents">.45</span></span>
-        """
-        value = self
-        sym = self.currency
-        group_sym = ","
-        decimal_sym = "."
-        if babel:
-            # TODO: use localised formatting
-            #format = self.locale.currency_formats[None]
-            curr_sym = self.locale.currency_symbols.get(self.currency, self.currency)
-            #group_sym = self.locale.number_symbols.get('group', group_sym)
-            decimal_sym = self.locale.number_symbols.get('decimal', decimal_sym)
-            value = babel.numbers.format_decimal(value, "#,##0.00", locale=self.locale)
-        major, minor = value.rsplit(decimal_sym, 1)
-        return mark_safe(self.HTML % locals())
-
-    def raw(self):
-        """ Return the decimal unformatted, as the Decimal class would have it. """
-        return super(FormattedDecimal, self).__unicode__()
-
-    def __unicode__(self):
-        """ Return a formatted version of the Decimal, using the preset locale and currency. """
-        if babel:
-            if self.currency:
-                return babel.numbers.format_currency(self, self.currency, locale=self.locale)
-            else:
-                return babel.numbers.format_decimal(self, "#,##0.00", locale=self.locale)
-        return super(FormattedDecimal, self).__unicode__()
 
 
 class Total(object):
@@ -210,12 +214,20 @@ class Total(object):
     def get_total(self, purchase_instance):
 
         if self.attributes:
-            items = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._items if name in self.attributes])
-            extras = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._extras if name in self.attributes])
-            removed_extras = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._extras if '-%s'%name in self.attributes])
+            items = dict([ (name,getattr(purchase_instance, name)) 
+                                    for name in purchase_instance._items 
+                                    if name in self.attributes ])
+            extras = dict([ (name,getattr(purchase_instance, name)) 
+                                    for name in purchase_instance._extras 
+                                    if name in self.attributes ])
+            removed_extras = dict([(name,getattr(purchase_instance, name)) 
+                                    for name in purchase_instance._extras 
+                                    if '-%s'%name in self.attributes ])
         else:
-            items = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._items])
-            extras = dict([(name,getattr(purchase_instance, name)) for name in purchase_instance._extras])
+            items = dict([(name,getattr(purchase_instance, name)) 
+                                    for name in purchase_instance._items])
+            extras = dict([(name,getattr(purchase_instance, name))
+                                    for name in purchase_instance._extras])
             removed_extras = {}
 
         total = Decimal(0)
@@ -223,30 +235,31 @@ class Total(object):
         # Sum all the items
         for name, queryset in items.items():
             item_total = sum([i.AMOUNT or Decimal('0') for i in queryset])
-            logging.debug("Adding %s (%s) to the total" % (name, item_total))
             total += item_total
 
         # Sum all the extras
         for name in purchase_instance._extras:
             value = getattr(purchase_instance, name)
-            # Add the amount of any extras that are not already included in the total
+            # Add the amount of any extras that are not already in the total
             if name in extras and value.included is False:
-                logging.debug("Adding %s (%s) to the total" % (name, value.amount))
                 total += value.amount or Decimal(0)
             elif name in removed_extras and value.included is True:
-                logging.debug("Removing %s (%s) from the total" % (name, value.amount))
                 total -= value.amount or Decimal(0)
-            # The following automatic removal has now been replaced with explicit removal
-            ## Remove the amount of any extras that are already included in the total
-            #elif name not in extras and value.included is True:
-            #    logging.debug("Removing %s (%s) from the total" % (name, value.amount))
-            #    total -= value.amount or Decimal(0)
 
         if self.prevent_negative and total < 0:
             total = Decimal(0)
 
         return FormattedDecimal(total, purchase_instance=purchase_instance)
 
+
+#
+# Item objects
+#
+# These reference a group of objects, whose sum is to be included in a total.
+# The objects are retrieved from the database once, and processing is done
+# in Python, as there generally wont be many items. 
+# A descriptor is again used to populate and cache the list of items at runtime.
+# 
 
 class Items(object):
     """ Describes a set of items to be included.
@@ -275,32 +288,34 @@ class ItemsDescriptor(object):
 
         model_instance = obj.instance
 
-        # If this is a ManyToMany field with a "through=" model, use that instead of the final model
+        # If this is a ManyToMany field with a "through=" model, use that
+        # instead of the final model
         try:
             field = model_instance._meta.get_field(self.items.attribute)
-            # NB: Different versions of django have a different name for the through_model
-            if field.rel.through is not None and hasattr(field.rel.through, '_meta'):
+            # NB: Different versions of django have a different name for
+            # the through_model
+            if field.rel.through is not None \
+                            and hasattr(field.rel.through, '_meta'):
+                # Keep moving if this through field was automatically created
                 if field.rel.through._meta.auto_created:
                     raise AttributeError
                 through_model = field.rel.through
             else:
                 through_model = field.rel.through_model
-            #if hasattr(field.rel, 'through_model'):
-                #through_model = 
-            # Only continue for manually created (eg "through=") through models
-            #if field.rel.through._meta.auto_created:
-                #raise AttributeError
-            #through_model = getattr(field.rel, 'through_model', field.rel.through)
             for f in through_model._meta.fields:
-                if hasattr(f,'rel') and f.rel and f.rel.to == field.related.model:
-                    queryset = through_model._default_manager.filter(**{f.name: model_instance})
+                if hasattr(f,'rel') and f.rel \
+                            and f.rel.to == field.related.model:
+                    query = {f.name: model_instance}
+                    queryset = through_model._default_manager.filter(**query)
                     break
         # Otherwise, just use django to get the queryset
         except (FieldDoesNotExist, AttributeError):
-            queryset = getattr(model_instance, self.items.attribute).all().select_related()
+            manager = getattr(model_instance, self.items.attribute)
+            queryset = manager.all().select_related()
 
         for i in queryset:
-            amount = self.resolve_value(self.get_item_unit_total(self.items.item_amount_from, i, obj), model_instance)
+            val = self.get_item_unit_total(self.items.item_amount_from, i, obj)
+            amount = self.resolve_value(val, model_instance)
             i.AMOUNT = FormattedDecimal(amount, purchase_instance=obj)
 
         obj._cache[self.items.name] = queryset
@@ -309,9 +324,11 @@ class ItemsDescriptor(object):
     def get_item_unit_total(self, value, rel_instance, purchase_instance):
 
         if isinstance(value, basestring):
-            if value.startswith("self.") and hasattr(purchase_instance, value[5:]):
+            if value.startswith("self.") \
+                            and hasattr(purchase_instance, value[5:]):
                 return getattr(purchase_instance, value[5:])(rel_instance)
-            elif value.startswith("model.") and hasattr(rel_instance, value[6:]):
+            elif value.startswith("model.") \
+                            and hasattr(rel_instance, value[6:]):
                 val = getattr(rel_instance, value[6:])
                 try:
                     return val(purchase_instance)
@@ -391,9 +408,11 @@ class ModelPurchase(object):
     _currency = None
     _html = None
 
-    def __init__(self, instance):
+    def __init__(self, instance, locale=None):
         self.instance = instance
         self._cache = {}
+        if locale:
+            self._locale = locale
 
         # Call any callables now that we have the instance we need
         if callable(self._locale):
