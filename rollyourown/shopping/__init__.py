@@ -4,13 +4,7 @@
     need to import this module. All publically available functionality should be
     accessible here (except maybe abstract models and utils).
 
-    eg 
-
-    >>> from rollyourown import shopping
-    >>> class MyCartPurchase(shopping.ModelPurchase):
-    ...     pass
-    >>> from myapp.models import MyCart
-    >>> shopping.register(MyCart, MyCartPurchase)
+    See unit tests for an example of usage.
 
 """
 

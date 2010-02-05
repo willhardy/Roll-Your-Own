@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
-# TODO: Optimisation and review
+
 
 from django.db.models import get_apps
 import logging
+
+logging.warning("Registration approach to ModelPurchase API is deprecated. It will be removed before 1.0.")
 
 # This is the name of the shopping module n an app, eg 'shopping' for shopping.py
 SHOPPING_MODULE_NAME = "shopping"
