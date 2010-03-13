@@ -10,8 +10,8 @@
         * callable handling
         * currency formatting
 
-    The organisation of this system is designed to be extremely flexible 
-    and promote good software design. See unit tests and online 
+    The organisation of this system is designed to be extremely flexible
+    and promote good software design. See unit tests and online
     documentation for usage.
 
     $Revision$
@@ -43,9 +43,9 @@ NotSet = NotSet()
 # These describe single amounts that can be added or subtracted from a total,
 # such as delivery costs, adjustments or discounts. As their value can be set
 # to be calculated dynamically from the model instance, they need to be bound
-# at run time, to ensure they have access to the model in question. A 
+# at run time, to ensure they have access to the model in question. A
 # descriptor is used to perform this task.
-# 
+#
 
 class ExtraDescriptor(object):
     " Descriptor to handle the lazy access and binding of Extra() objects "
@@ -68,8 +68,8 @@ class ExtraDescriptor(object):
 
 class BoundExtra(object):
     """ An Extra object, bound to a model instance and therefore able to
-        calculate the relevant amount. 
-        The referenced method, function or value in Extra() can be 
+        calculate the relevant amount.
+        The referenced method, function or value in Extra() can be
         resolved when called.
 
         TODO: It may be worthwhile caching the resolved values, if
@@ -99,16 +99,16 @@ class BoundExtra(object):
 
     @property
     def amount(self):
-        return FormattedDecimal(self.resolve_value(self._amount), 
-                            purchase_instance=self._purchase_instance) 
+        return FormattedDecimal(self.resolve_value(self._amount),
+                            purchase_instance=self._purchase_instance)
 
     def resolve_value(self, value):
-        """ Generic accessor returning a value, calling it if possible. 
+        """ Generic accessor returning a value, calling it if possible.
         """
         if callable(value):
             try:
                 return value(self._instance)
-            except TypeError, e: 
+            except TypeError, e:
                 return value()
         else:
             return value
@@ -131,7 +131,7 @@ class BoundExtra(object):
                 return getattr(purch_inst, value[5:])
             elif value.startswith("model.") and hasattr(mod_inst, value[6:]):
                 return getattr(mod_inst, value[6:])
-            
+
         return value
 
 
@@ -142,7 +142,7 @@ class Extra(object):
         point to functions, which provide the relevant inforamtion.
     """
 
-    def __init__(self, verbose_name=NotSet, amount=NotSet, 
+    def __init__(self, verbose_name=NotSet, amount=NotSet,
                             description=NotSet, included=False):
         self.name = None
         self.verbose_name = verbose_name
@@ -179,12 +179,12 @@ class Extra(object):
 # Total objects
 #
 # These describe a total that is to be calculated by the system, by summing
-# the amounts derived from Items or Extras. Like Extras, these need to be 
+# the amounts derived from Items or Extras. Like Extras, these need to be
 # bound to a model instance at run time, and a descriptor is again used to
 # do this.
 # When accessed, the descriptor returns the calculated value directly as a
 # formatted Decimal.
-# 
+#
 
 class TotalDescriptor(object):
     def __init__(self, total):
@@ -214,17 +214,17 @@ class Total(object):
     def get_total(self, purchase_instance):
 
         if self.attributes:
-            items = dict([ (name,getattr(purchase_instance, name)) 
-                                    for name in purchase_instance._items 
+            items = dict([ (name,getattr(purchase_instance, name))
+                                    for name in purchase_instance._items
                                     if name in self.attributes ])
-            extras = dict([ (name,getattr(purchase_instance, name)) 
-                                    for name in purchase_instance._extras 
+            extras = dict([ (name,getattr(purchase_instance, name))
+                                    for name in purchase_instance._extras
                                     if name in self.attributes ])
-            removed_extras = dict([(name,getattr(purchase_instance, name)) 
-                                    for name in purchase_instance._extras 
+            removed_extras = dict([(name,getattr(purchase_instance, name))
+                                    for name in purchase_instance._extras
                                     if '-%s'%name in self.attributes ])
         else:
-            items = dict([(name,getattr(purchase_instance, name)) 
+            items = dict([(name,getattr(purchase_instance, name))
                                     for name in purchase_instance._items])
             extras = dict([(name,getattr(purchase_instance, name))
                                     for name in purchase_instance._extras])
@@ -257,9 +257,9 @@ class Total(object):
 #
 # These reference a group of objects, whose sum is to be included in a total.
 # The objects are retrieved from the database once, and processing is done
-# in Python, as there generally wont be many items. 
+# in Python, as there generally wont be many items.
 # A descriptor is again used to populate and cache the list of items at runtime.
-# 
+#
 
 class Items(object):
     """ Describes a set of items to be included.
@@ -337,14 +337,14 @@ class ItemsDescriptor(object):
                         return val()
                     except TypeError:
                         return val
-        
+
         return value
 
     def resolve_value(self, value, model_instance):
         if callable(value):
             try:
                 return value(model_instance)
-            except TypeError, e: 
+            except TypeError, e:
                 return value()
         else:
             return value
@@ -392,7 +392,7 @@ class ModelPurchaseBase(type):
                 extras[key] = value
             elif isinstance(value, Total):
                 totals[key] = value
-            
+
             attrs.pop(key)
             new_class.add_to_class(key, value)
 
@@ -421,4 +421,3 @@ class ModelPurchase(object):
             self._currency = self._currency(instance)
         if callable(self._html):
             self._html = self._html(instance)
-

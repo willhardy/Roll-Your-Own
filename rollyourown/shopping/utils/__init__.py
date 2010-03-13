@@ -2,6 +2,7 @@ from friendly_id import FriendlyID
 
 from django.shortcuts import render_to_response
 from django.template import RequestContext
+from django.utils.encoding import smart_str
 
 __all__ = ('FriendlyID', 'render_to', 'FormattedDecimal')
 
@@ -14,7 +15,7 @@ def render_to(template):
     Additionally view can return two-tuple, which must contain dict as first
     element and string with template name as second. This string will
     override template name, given as parameter
-    
+
     Example usage:
 
     @render_to('myapp/templatename.html')
@@ -36,7 +37,7 @@ def render_to(template):
             if isinstance(output, (list, tuple)):
                 templ, output = output
             if isinstance(output, dict):
-                # Remove request if given, we are using the one given in the input 
+                # Remove request if given, we are using the one given in the input
                 output = output.copy()
                 output.pop('request', None)
                 return render_to_response(template, output, RequestContext(request))
@@ -57,7 +58,7 @@ except ImportError:
     babel = None
 
 
-DEFAULT_DECIMAL_HTML = ('<span class="money">' 
+DEFAULT_DECIMAL_HTML = ('<span class="money">'
                         '<span class="currency">%(curr_sym)s</span>%(major)s'
                         '<span class="cents">%(decimal_sym)s%(minor)s</span>'
                         '</span>')
@@ -66,8 +67,8 @@ class FormattedDecimal(Decimal):
     """ A formatted decimal according to the given locale and currency. """
 
     def __new__(cls, value=0, context=None, purchase_instance=None):
-        """ Create a new immutable Decimal object, adding our custom 
-            attributes. 
+        """ Create a new immutable Decimal object, adding our custom
+            attributes.
         """
         obj = Decimal.__new__(cls, value, context)
         obj.initialise_context(purchase_instance)
@@ -92,7 +93,7 @@ class FormattedDecimal(Decimal):
 
     @property
     def elements(self):
-        """ Returns a dict of the various elements for localised display. 
+        """ Returns a dict of the various elements for localised display.
             eg en_AU:
                    value        "1,234.56"
                    curr_sym     "$"
@@ -106,10 +107,10 @@ class FormattedDecimal(Decimal):
         # If babel is available, use its comprehensive locale skills
         if babel:
             value = self
-            curr_sym = self.locale.currency_symbols.get(self.currency, 
+            curr_sym = self.locale.currency_symbols.get(self.currency,
                                                             self.currency)
             decimal_sym = self.locale.number_symbols.get('decimal', ".")
-            value = babel.numbers.format_decimal(value, "#,##0.00", 
+            value = babel.numbers.format_decimal(value, "#,##0.00",
                                                         locale=self.locale)
 
         # If no babel, use Django's built-in locale data
@@ -119,7 +120,7 @@ class FormattedDecimal(Decimal):
             decimal_sym = get_format('DECIMAL_SEPARATOR', self.locale)
             group_sym = get_format('THOUSAND_SEPARATOR', self.locale)
             num_group = get_format('NUMBER_GROUPING', self.locale)
-            value = numberformat.format(value, decimal_sym, None, 
+            value = numberformat.format(value, decimal_sym, None,
                                                     num_group, group_sym)
 
         major, minor = value.rsplit(decimal_sym, 1)
@@ -133,10 +134,10 @@ class FormattedDecimal(Decimal):
 
     def __unicode__(self):
         """ Return a formatted version of the Decimal, using the preset locale
-            and currency. 
+            and currency.
         """
         if babel and self.currency:
-            return babel.numbers.format_currency(self, self.currency, 
+            return babel.numbers.format_currency(self, self.currency,
                                                     locale=self.locale)
         else:
             return self.elements['value']
@@ -192,6 +193,7 @@ def get_format(format_type, locale=None):
     language (locale), defaults to the format in the settings.
     format_type is the name of the format, e.g. 'DATE_FORMAT'
     """
+
     format_type = smart_str(format_type)
     if settings.USE_L10N:
         for module in get_format_modules(locale=locale):
@@ -200,4 +202,3 @@ def get_format(format_type, locale=None):
             except AttributeError:
                 pass
     return getattr(settings, format_type)
-
