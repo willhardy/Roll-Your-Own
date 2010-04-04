@@ -4,8 +4,6 @@
 from django.db.models import get_apps
 import logging
 
-logging.warning("Registration approach to ModelPurchase API is deprecated. It will be removed before 1.0.")
-
 # This is the name of the shopping module n an app, eg 'shopping' for shopping.py
 SHOPPING_MODULE_NAME = "shopping"
 
@@ -19,6 +17,7 @@ class ShoppingCache(object):
 
     def register(self, model, purchase_class):
         """ Register the given model with the given purchase class definition. """
+        logging.warning("Registration approach to ModelPurchase API is deprecated. It will be removed before 1.0.")
         if model in self.models:
             raise AlreadyRegistered("The model %s is already registered." % model)
         self.models[model] = purchase_proxy_factory(model, purchase_class)
