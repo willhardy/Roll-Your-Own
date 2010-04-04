@@ -25,6 +25,7 @@ class CartPurchase(shopping.ModelPurchase):
     vouchers_total= shopping.Total('vouchers')
     total         = shopping.Total()
     total_prevent_negative = shopping.Total(prevent_negative=True)
+    custom_total  = shopping.Total('custom_method')
 
     def delivery_amount(self): 
         return "10.01"
@@ -36,6 +37,9 @@ class CartPurchase(shopping.ModelPurchase):
         return Decimal("10.00") + Decimal("00.02")
     def get_voucher_amount(self, instance):
         return (-Decimal(instance.percent * self.items_total) / 100).quantize(Decimal("0.01"))
+
+    def custom_method(self, instance):
+        return 42
 
 # Old approach
 #    def total_items_amount(self, instance):

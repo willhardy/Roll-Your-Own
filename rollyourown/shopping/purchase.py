@@ -212,23 +212,39 @@ class Total(object):
         setattr(cls, name, TotalDescriptor(self))
 
     def get_total(self, purchase_instance):
+        items = {}
+        extras = {}
+        custom = {}
+        negatives = set()
 
+        # If attributes are given, use 
         if self.attributes:
-            items = dict([ (name,getattr(purchase_instance, name))
-                                    for name in purchase_instance._items
-                                    if name in self.attributes ])
-            extras = dict([ (name,getattr(purchase_instance, name))
-                                    for name in purchase_instance._extras
-                                    if name in self.attributes ])
-            removed_extras = dict([(name,getattr(purchase_instance, name))
-                                    for name in purchase_instance._extras
-                                    if '-%s'%name in self.attributes ])
+            for name in self.attributes:
+                # Flag any negative amounts
+                if name.startswith("-"):
+                    name = name[1:]
+                    negatives.add(name)
+
+                value = getattr(purchase_instance, name)
+
+                # Handle items
+                if name in purchase_instance._items:
+                    items[name] = value
+
+                # Handle extras
+                elif name in purchase_instance._extras:
+                    extras[name] = value
+
+                # Handle custom methods and attributes
+                else:
+                    custom[name] = value
+
+        # If no attributes are given, use all items, and all extras
         else:
             items = dict([(name,getattr(purchase_instance, name))
                                     for name in purchase_instance._items])
             extras = dict([(name,getattr(purchase_instance, name))
                                     for name in purchase_instance._extras])
-            removed_extras = {}
 
         total = Decimal(0)
 
@@ -238,14 +254,23 @@ class Total(object):
             total += item_total
 
         # Sum all the extras
-        for name in purchase_instance._extras:
-            value = getattr(purchase_instance, name)
-            # Add the amount of any extras that are not already in the total
-            if name in extras and value.included is False:
+        for name,value in extras.items():
+            if name not in negatives and not value.included:
                 total += value.amount or Decimal(0)
-            elif name in removed_extras and value.included is True:
+            elif name in negatives and value.included:
                 total -= value.amount or Decimal(0)
 
+        # Sum any custom amounts
+        for name,value in custom.items():
+            if callable(value):
+                try:
+                    return value(purchase_instance)
+                except TypeError, e: 
+                    return value()
+            if name in negatives:
+                value = -value
+            total += value or Decimal(0)
+    
         if self.prevent_negative and total < 0:
             total = Decimal(0)
 
@@ -399,6 +424,7 @@ class ModelPurchaseBase(type):
         new_class.add_to_class('_extras', extras)
         new_class.add_to_class('_items', items)
         new_class.add_to_class('_totals', totals)
+
         return new_class
 
 

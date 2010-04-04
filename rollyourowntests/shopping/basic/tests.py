@@ -152,3 +152,11 @@ class TestTotals(TestCase):
         self.cart.vouchers.add(voucher)
         self.assertEqual(self.cart_purchase.total_prevent_negative, Decimal(0))
 
+    def test_custom_total(self):
+        """ Tests a total calculated using a custom method. """
+        self.assertEqual(self.cart_purchase.custom_total, 42)
+
+    def test_custom_method(self):
+        """ Tests that access to custom methods/properties/attribtues is enabled. """
+        self.assertEqual(self.cart_purchase.custom_method(self.cart_purchase.instance), 42)
+
