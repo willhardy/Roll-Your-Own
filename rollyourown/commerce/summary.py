@@ -1,14 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 """
-    ModelPurchase class.
+    Summary class.
 
-    This class allows an ecommerce system to be defined using declarative
-    syntax, with several aspects of the system handled automatically:
+    This class allows an ecommerce system to be summarised. It is defined using
+    a declarative syntax, and automates several aspects of ecommerce systems:
 
-        * total calculation
-        * callable handling
+        * calculation of totals
         * currency formatting
+        * callable handling
 
     The organisation of this system is designed to be extremely flexible
     and promote good software design. See unit tests and online
@@ -18,16 +18,10 @@
 
 """
 
-import logging
 from decimal import Decimal
-
 from django.db.models.base import ModelBase, Model
 from django.db.models.fields import FieldDoesNotExist
-from django.core.exceptions import FieldError
-from django.utils.translation import to_locale, check_for_language
-from django.utils.encoding import smart_str
-
-from rollyourown.shopping.utils import FormattedDecimal
+from rollyourown.commerce.utils import FormattedDecimal
 
 
 class NotSet(object):
@@ -81,10 +75,10 @@ class BoundExtra(object):
        TODO: Might want to do import time validation, so that a more
              usable error message is shown when the amount is not set
     """
-    def __init__(self, purchase_instance, extra):
+    def __init__(self, summary_instance, extra):
         self._extra        = extra
-        self._purchase_instance = purchase_instance
-        self._instance     = purchase_instance.instance
+        self._summary_instance = summary_instance
+        self._instance     = summary_instance.instance
 
         # Get values or functions to be resolved at run time
         self._verbose_name = self.get_referenced_method('verbose_name')
@@ -100,7 +94,7 @@ class BoundExtra(object):
     @property
     def amount(self):
         return FormattedDecimal(self.resolve_value(self._amount),
-                            purchase_instance=self._purchase_instance)
+                            summary_instance=self._summary_instance)
 
     def resolve_value(self, value):
         """ Generic accessor returning a value, calling it if possible.
@@ -124,7 +118,7 @@ class BoundExtra(object):
             TODO: This is only used in the BoundExtra module
         """
         value = getattr(self._extra, attribute)
-        purch_inst = self._purchase_instance
+        purch_inst = self._summary_instance
         mod_inst = self._instance
         if isinstance(value, basestring):
             if value.startswith("self.") and hasattr(purch_inst, value[5:]):
@@ -211,7 +205,7 @@ class Total(object):
         self.name = name
         setattr(cls, name, TotalDescriptor(self))
 
-    def get_total(self, purchase_instance):
+    def get_total(self, summary_instance):
         items = {}
         extras = {}
         custom = {}
@@ -225,14 +219,14 @@ class Total(object):
                     name = name[1:]
                     negatives.add(name)
 
-                value = getattr(purchase_instance, name)
+                value = getattr(summary_instance, name)
 
                 # Handle items
-                if name in purchase_instance._items:
+                if name in summary_instance._items:
                     items[name] = value
 
                 # Handle extras
-                elif name in purchase_instance._extras:
+                elif name in summary_instance._extras:
                     extras[name] = value
 
                 # Handle custom methods and attributes
@@ -241,10 +235,10 @@ class Total(object):
 
         # If no attributes are given, use all items, and all extras
         else:
-            items = dict([(name,getattr(purchase_instance, name))
-                                    for name in purchase_instance._items])
-            extras = dict([(name,getattr(purchase_instance, name))
-                                    for name in purchase_instance._extras])
+            items = dict([(name,getattr(summary_instance, name))
+                                    for name in summary_instance._items])
+            extras = dict([(name,getattr(summary_instance, name))
+                                    for name in summary_instance._extras])
 
         total = Decimal(0)
 
@@ -264,7 +258,7 @@ class Total(object):
         for name,value in custom.items():
             if callable(value):
                 try:
-                    return value(purchase_instance)
+                    return value(summary_instance)
                 except TypeError, e: 
                     return value()
             if name in negatives:
@@ -274,7 +268,7 @@ class Total(object):
         if self.prevent_negative and total < 0:
             total = Decimal(0)
 
-        return FormattedDecimal(total, purchase_instance=purchase_instance)
+        return FormattedDecimal(total, summary_instance=summary_instance)
 
 
 #
@@ -341,22 +335,22 @@ class ItemsDescriptor(object):
         for i in queryset:
             val = self.get_item_unit_total(self.items.item_amount_from, i, obj)
             amount = self.resolve_value(val, model_instance)
-            i.AMOUNT = FormattedDecimal(amount, purchase_instance=obj)
+            i.AMOUNT = FormattedDecimal(amount, summary_instance=obj)
 
         obj._cache[self.items.name] = queryset
         return queryset
 
-    def get_item_unit_total(self, value, rel_instance, purchase_instance):
+    def get_item_unit_total(self, value, rel_instance, summary_instance):
 
         if isinstance(value, basestring):
             if value.startswith("self.") \
-                            and hasattr(purchase_instance, value[5:]):
-                return getattr(purchase_instance, value[5:])(rel_instance)
+                            and hasattr(summary_instance, value[5:]):
+                return getattr(summary_instance, value[5:])(rel_instance)
             elif value.startswith("model.") \
                             and hasattr(rel_instance, value[6:]):
                 val = getattr(rel_instance, value[6:])
                 try:
-                    return val(purchase_instance)
+                    return val(summary_instance)
                 except TypeError:
                     try:
                         return val()
@@ -375,7 +369,7 @@ class ItemsDescriptor(object):
             return value
 
 
-class ModelPurchaseBase(type):
+class SummaryBase(type):
 
     def add_to_class(cls, name, value):
         if hasattr(value, 'contribute_to_class'):
@@ -384,7 +378,7 @@ class ModelPurchaseBase(type):
             setattr(cls, name, value)
 
     def __new__(cls, name, bases, attrs):
-        new_class = super(ModelPurchaseBase, cls).__new__(cls, name, bases, attrs)
+        new_class = super(SummaryBase, cls).__new__(cls, name, bases, attrs)
 
         # This will setup and store the extras that will be needed, from which
         # BoundExtra objects can be created at instantiation.
@@ -428,8 +422,8 @@ class ModelPurchaseBase(type):
         return new_class
 
 
-class ModelPurchase(object):
-    __metaclass__ = ModelPurchaseBase
+class Summary(object):
+    __metaclass__ = SummaryBase
     _locale = None
     _currency = None
     _html = None

@@ -1,55 +1,17 @@
-from friendly_id import FriendlyID
-
-from django.shortcuts import render_to_response
-from django.template import RequestContext
-from django.utils.encoding import smart_str
-
-__all__ = ('FriendlyID', 'render_to', 'FormattedDecimal')
-
-def render_to(template):
-    """
-    Decorator for Django views that sends returned dict to render_to_response function
-    with given template and RequestContext as context instance.
-
-    If view doesn't return dict then decorator simply returns output.
-    Additionally view can return two-tuple, which must contain dict as first
-    element and string with template name as second. This string will
-    override template name, given as parameter
-
-    Example usage:
-
-    @render_to('myapp/templatename.html')
-    def my_view(request, tree_number):
-        return locals()
-
-    Credit to DjangoSnippet #TODO look up the snippet
-
-    Changes made:
-        view can simply return locals(), this decorator will make a copy (as we
-        should never edit the locals() dict) and remove any item name 'request'
-        from the output dict. This may not be desirable in cases, but I haven't
-        come across any.
-    """
-    def renderer(func):
-        def wrapper(request, *args, **kw):
-            templ = template
-            output = func(request, *args, **kw)
-            if isinstance(output, (list, tuple)):
-                templ, output = output
-            if isinstance(output, dict):
-                # Remove request if given, we are using the one given in the input
-                output = output.copy()
-                output.pop('request', None)
-                return render_to_response(template, output, RequestContext(request))
-            return output
-        return wrapper
-    return renderer
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+"""
+    The FormattedDecimal class allows locale aware formatting of currency
+    amounts as decimals. This is intended to be used internally to format
+    total values and extra values automatically when printed.
+"""
 
 
 from django.conf import settings
 from decimal import Decimal
 from django.utils.safestring import mark_safe
 from django.utils import numberformat
+from django.utils.encoding import smart_str
 
 # babel has more comprehensive localisation, if it's available, we'll use that.
 try:
@@ -66,18 +28,18 @@ DEFAULT_DECIMAL_HTML = ('<span class="money">'
 class FormattedDecimal(Decimal):
     """ A formatted decimal according to the given locale and currency. """
 
-    def __new__(cls, value=0, context=None, purchase_instance=None):
+    def __new__(cls, value=0, context=None, summary_instance=None):
         """ Create a new immutable Decimal object, adding our custom
             attributes.
         """
         obj = Decimal.__new__(cls, value, context)
-        obj.initialise_context(purchase_instance)
+        obj.initialise_context(summary_instance)
         return obj
 
-    def initialise_context(self, purchase_instance):
-        self.locale = purchase_instance._locale or settings.LANGUAGE_CODE
-        self.currency = purchase_instance._currency
-        self.HTML = purchase_instance._html or DEFAULT_DECIMAL_HTML
+    def initialise_context(self, summary_instance):
+        self.locale = summary_instance._locale or settings.LANGUAGE_CODE
+        self.currency = summary_instance._currency
+        self.HTML = summary_instance._html or DEFAULT_DECIMAL_HTML
         if babel:
             self.locale = babel.core.Locale.parse(self.locale, sep="-")
 
