@@ -10,6 +10,7 @@ class Cart(models.Model):
     items        = models.ManyToManyField(Product, through="CartItem")
     vouchers     = models.ManyToManyField('Voucher')
     date_created = models.DateTimeField(default=datetime.now)
+    cached_total = models.DecimalField(max_digits=10, decimal_places=2, editable=False, blank=True, null=True)
 
     def delivery_included(self): 
         return False

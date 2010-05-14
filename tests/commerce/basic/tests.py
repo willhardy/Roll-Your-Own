@@ -9,6 +9,7 @@ from django.test import TestCase
 from models import Cart, Order, Product, CartItem, Voucher
 from commerce import CartSummary, OrderSummary
 from decimal import Decimal
+from django.db.models import Sum
 
 class TestExtras(TestCase):
     def setUp(self):
@@ -120,16 +121,16 @@ class TestItems(TestCase):
 class TestTotals(TestCase):
 
     def setUp(self):
-        cart = Cart.objects.create()
+        self.cart = Cart.objects.create()
 
         self.product_1 = Product.objects.create(price=Decimal("0.01"))
         self.product_2 = Product.objects.create(price=Decimal("11.22"))
-        self.item_1    = CartItem.objects.create(cart=cart, product=self.product_1, quantity=7)
-        self.item_2    = CartItem.objects.create(cart=cart, product=self.product_2)
+        self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1, quantity=7)
+        self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
 
-        self.cart = Cart.objects.get(pk=cart.pk)
+        #self.cart = Cart.objects.get(pk=cart.pk)
 
-        self.cart_summary = CartSummary(instance=cart)
+        self.cart_summary = CartSummary(instance=self.cart)
 
     def test_total_creation(self):
         """ Tests that self_summary is created properly """
@@ -160,3 +161,20 @@ class TestTotals(TestCase):
         """ Tests that access to custom methods/properties/attribtues is enabled. """
         self.assertEqual(self.cart_summary.custom_method(self.cart_summary.instance), 42)
 
+    def test_model_cache(self):
+        """ Checks that summary total is saved to the model instance. """
+        cached_total = self.cart_summary.cached_total
+        self.assertEqual(self.cart.cached_total, cached_total)
+
+    def test_model_cache_aggregation(self):
+        """ Checks that aggregation works with cached summary totals. """
+        # Add another model instance and test aggregation
+        cart2 = Cart.objects.create()
+        item_1    = CartItem.objects.create(cart=cart2, product=self.product_1)
+        cart_summary2 = CartSummary(instance=cart2)
+
+        cached_total = self.cart_summary.cached_total + cart_summary2.cached_total
+        self.cart.save()
+        cart2.save()
+
+        self.assertEqual(cached_total, Cart.objects.all().aggregate(cached_sum=Sum('cached_total'))['cached_sum'])

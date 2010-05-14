@@ -30,6 +30,9 @@ class NotSet(object):
     def __repr__(self): return self.__str__()
 NotSet = NotSet()
 
+class SummaryValidationError(Exception):
+    " An error raised when validating the summary definition at compile time. "
+
 
 #
 # Extra objects
@@ -198,8 +201,12 @@ class Total(object):
     """
     def __init__(self, *args, **kwargs):
         self.attributes = args
-        self.prevent_negative = kwargs.get('prevent_negative', False)
+        self.prevent_negative = kwargs.pop('prevent_negative', False)
+        self.model_cache = kwargs.pop('model_cache', None)
         self.name = None
+
+        if kwargs:
+            raise SummaryValidationError("Unknown keyword argument for Total: %s" % kwargs.keys()[0])
 
     def contribute_to_class(self, cls, name):
         self.name = name
@@ -267,6 +274,10 @@ class Total(object):
     
         if self.prevent_negative and total < 0:
             total = Decimal(0)
+
+        # Save the cached value to the database
+        if self.model_cache is not None:
+            summary_instance.save_total(name=self.name, field_name=self.model_cache, total=total)
 
         return FormattedDecimal(total, summary_instance=summary_instance)
 
@@ -441,3 +452,10 @@ class Summary(object):
             self._currency = self._currency(instance)
         if callable(self._html):
             self._html = self._html(instance)
+
+    def save_total(self, name, field_name, total):
+        """ Save calculated total to model instance. 
+            By default, the model instance isn't automatically saved, 
+            but this can be cusomised..
+        """
+        setattr(self.instance, field_name, total)
