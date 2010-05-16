@@ -23,6 +23,9 @@ class CartItem(models.Model):
     def item_price(self, instance):
         return self.product.price * self.quantity
 
+    def __unicode__(self):
+        return u"%dx %s" % (self.quantity, self.product.name)
+
 class Order(models.Model):
     items        = models.ManyToManyField(Product, through="OrderItem")
     vouchers     = models.ManyToManyField('Voucher')

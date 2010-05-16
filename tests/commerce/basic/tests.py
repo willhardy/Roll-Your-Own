@@ -38,11 +38,10 @@ class TestExtras(TestCase):
 
     def test_name_default(self):
         """ Tests that the name attribute is set to a sensible default."""
-        self.assertEqual(self.cart_summary.my_commission.verbose_name, u"my commission")
+        self.assertEqual(self.cart_summary.my_commission.verbose_name, u"My commission")
 
     def test_name_callable(self):
         """ Tests that the name attribute can be set by a callable."""
-        #self.assertEqual(self.cart_summary.delivery.verbose_name(self.cart), u"Lieferung")
         self.assertEqual(self.cart_summary.delivery.verbose_name, u"Lieferung")
 
     def test_description_explicit(self):
@@ -56,7 +55,6 @@ class TestExtras(TestCase):
 
     def test_description_callable(self):
         """ Tests that the description attribute can be set by a callable."""
-        #self.assertEqual(self.cart_summary.delivery.description(self.cart), u"Interstate")
         self.assertEqual(self.cart_summary.delivery.description, u"Interstate")
 
     def test_amount_explicit(self):
@@ -65,14 +63,11 @@ class TestExtras(TestCase):
 
     def test_amount_default(self):
         """ Tests that the description attribute is set to a sensible default."""
-        #self.assertEqual(self.cart_summary.my_commission.amount(self.cart), Decimal("10.02"))
         self.assertEqual(self.cart_summary.my_commission.amount, Decimal("10.02"))
-        #self.assertEqual(self.cart_summary.tax.amount(self.cart), Decimal("10.03"))
         self.assertEqual(self.cart_summary.tax.amount, Decimal("10.03"))
 
     def test_amount_callable(self):
         """ Tests that the description attribute can be set by a callable."""
-        #self.assertEqual(self.cart_summary.delivery.amount(self.cart), Decimal("10.01"))
         self.assertEqual(self.cart_summary.delivery.amount, Decimal("10.01"))
 
     def test_included_explicit(self):
@@ -128,8 +123,6 @@ class TestTotals(TestCase):
         self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1, quantity=7)
         self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
 
-        #self.cart = Cart.objects.get(pk=cart.pk)
-
         self.cart_summary = CartSummary(instance=self.cart)
 
     def test_total_creation(self):
@@ -178,3 +171,36 @@ class TestTotals(TestCase):
         cart2.save()
 
         self.assertEqual(cached_total, Cart.objects.all().aggregate(cached_sum=Sum('cached_total'))['cached_sum'])
+
+
+class TestGeneral(TestCase):
+
+    def setUp(self):
+        self.cart = Cart.objects.create()
+
+        self.product_1 = Product.objects.create(price=Decimal("0.01"), name="Product One")
+        self.product_2 = Product.objects.create(price=Decimal("10011.22"), name="Product Two")
+        self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1, quantity=7)
+        self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
+
+        self.cart_summary = CartSummary(instance=self.cart)
+
+    def test_unicode(self):
+        """ Tests the standard unicode output of a summary.  """
+        self.assertEqual(unicode(self.cart_summary), u"""
+7x Product One              0.07
+1x Product Two          10011.22
+
+Lieferung (Interstate)     10.01
+Rabatt (Mates Rates)      -12.23
+My commission              10.02
+GST (15%)                  10.03
+
+        Vouchers total      0.00
+                 Total  10019.09
+          Custom total     42.00
+           Items total  10011.29
+          Cached total  10011.29
+Total prevent negative  10019.09
+          Items pretax  10001.26
+""".lstrip())
