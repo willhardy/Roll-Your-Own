@@ -1,0 +1,5 @@
+.. _reference-commerce-usage:
+
+========================
+Summary instance methods
+========================

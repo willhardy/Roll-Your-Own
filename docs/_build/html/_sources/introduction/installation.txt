@@ -1,0 +1,28 @@
+.. _introduction-install:
+
+Quick install guide
+===================
+
+The easiest way to install Roll Your Own is to use use ``easy_install`` or ``pip`` you have have them installed. If that's the case, use one of the following commands::
+
+    pip install rollyourown
+    easy_install rollyourown
+
+If you don't have ``easy_install`` or ``pip`` installed, you will need to do things manually. 
+Firstly, install Django by following the installation instructions at http://docs.djangoproject.com/en/dev/intro/install/.  
+Next download the RollYourOwn release from http://code.google.com/p/rollyourown/. To unpack and install it, run the following from your shell::
+
+    tar xvzf rollyourown-1.0.tar.gz
+    cd rollyourown-1.0/
+    python setup.py install
+
+That's it, you've installed everything you need to install. You can now try the :ref:`tutorial <introduction-commerce-tutorial>`.
+
+
+Development version
+-------------------
+
+For those you like to help out, you can check out the development version here::
+
+    svn checkout http://rollyourown.googlecode.com/svn/trunk/ rollyourown
+

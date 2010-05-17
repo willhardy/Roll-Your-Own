@@ -8,11 +8,14 @@ from decimal import Decimal
 
 def get_amount_tax(instance): 
     """ A function to test callable-passing. """
+    raise_type_error_when_requested(instance)
     return "10.03"
+
 
 class CartSummary(commerce.Summary):
     items         = commerce.Items(attribute="items", item_amount_from="model.item_price")
-    vouchers      = commerce.Items(attribute="vouchers", item_amount_from="self.get_voucher_amount")
+    vouchers      = commerce.Items(attribute="vouchers", item_amount_from="self.get_voucher_amount", cache_amount_as="VOUCH_AMOUNT_XYZ")
+    payments      = commerce.Items()
 
     my_commission = commerce.Extra()
     tax           = commerce.Extra("GST", amount=get_amount_tax, description="15%", included=True)
@@ -27,17 +30,23 @@ class CartSummary(commerce.Summary):
     custom_total  = commerce.Total('custom_method')
     cached_total  = commerce.Total('items', model_cache="cached_total")
 
-    def delivery_amount(self): 
+    def delivery_amount(self, instance): 
+        raise_type_error_when_requested(self)
         return "10.01"
-    def delivery_description(self): 
+    def delivery_description(self, instance): 
+        raise_type_error_when_requested(self)
         return "Interstate"
-    def delivery_name(self): 
+    def delivery_name(self, instance): 
+        raise_type_error_when_requested(self)
         return "Lieferung"
-    def get_amount_my_commission(self): 
+    def get_amount_my_commission(self, instance): 
+        raise_type_error_when_requested(self)
         return Decimal("10.00") + Decimal("00.02")
     def get_voucher_amount(self, instance):
+        raise_type_error_when_requested(self)
         return (-Decimal(instance.percent * self.items_total) / 100).quantize(Decimal("0.01"))
-    def custom_method(self, instance):
+    def custom_method(self):
+        raise_type_error_when_requested(self)
         return 42
 
 
@@ -45,6 +54,10 @@ class OrderSummary(commerce.Summary):
     delivery = commerce.Extra()
     total    = commerce.Total()
 
-    def get_amount_delivery(self):
+    def get_amount_delivery(self, instance):
         return "15.00"
 
+def raise_type_error_when_requested(obj):
+    # Raise TypeError on command
+    if getattr(obj, 'raise_type_error', False):
+        raise TypeError

@@ -8,6 +8,7 @@ class Product(models.Model):
 
 class Cart(models.Model):
     items        = models.ManyToManyField(Product, through="CartItem")
+    payments        = models.ManyToManyField('Payment')
     vouchers     = models.ManyToManyField('Voucher')
     date_created = models.DateTimeField(default=datetime.now)
     cached_total = models.DecimalField(max_digits=10, decimal_places=2, editable=False, blank=True, null=True)
@@ -20,7 +21,7 @@ class CartItem(models.Model):
     cart     = models.ForeignKey(Cart)
     quantity = models.PositiveSmallIntegerField(default=1)
 
-    def item_price(self, instance):
+    def item_price(self):
         return self.product.price * self.quantity
 
     def __unicode__(self):
@@ -38,3 +39,6 @@ class OrderItem(models.Model):
 
 class Voucher(models.Model):
     percent = models.DecimalField(max_digits=5, decimal_places=2)
+
+class Payment(models.Model):
+    pass

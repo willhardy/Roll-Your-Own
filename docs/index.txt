@@ -1,0 +1,38 @@
+.. RollYourOwn documentation master file, 
+   created by sphinx-quickstart on Sat May 15 11:27:50 2010.
+   This documentation is modelled on the Django documentation, partly for 
+   familiarity, partly because it's very well written.
+
+=========================
+RollYourOwn Documentation
+=========================
+
+.. rubric:: Everything you need to know
+
+
+First steps
+===========
+
+- :ref:`Overview <introduction-overview>`
+- :ref:`Installation <introduction-install>`
+
+Commerce
+========
+- :ref:`Tutorial <introduction-commerce-tutorial>`
+- :ref:`Summary class syntax <reference-commerce-syntax>`
+- :ref:`Summary instance methods <reference-commerce-usage>`
+- :ref:`e-Commerce best practice <topics-commerce-best-practices>`
+
+Populate
+========
+- :ref:`Tutorial <introduction-populate-tutorial>`
+- :ref:`Populator syntax <reference-populate-syntax>`
+
+Indices and tables
+==================
+
+- :ref:`contents`
+- :ref:`genindex`
+- :ref:`modindex`
+- :ref:`search`
+

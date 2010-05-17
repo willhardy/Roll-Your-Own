@@ -11,16 +11,13 @@ from commerce import CartSummary, OrderSummary
 from decimal import Decimal
 from django.db.models import Sum
 
-class TestExtras(TestCase):
+class Extras(TestCase):
     def setUp(self):
-        cart = Cart.objects.create()
-        order = Order.objects.create()
+        self.cart = Cart.objects.create()
+        self.order = Order.objects.create()
 
-        self.cart = Cart.objects.get(pk=cart.pk)
-        self.order = Order.objects.get(pk=order.pk)
-
-        self.cart_summary = CartSummary(instance=cart)
-        self.order_summary = OrderSummary(instance=order)
+        self.cart_summary = CartSummary(instance=self.cart)
+        self.order_summary = OrderSummary(instance=self.order)
 
     def test_extras_creation(self):
         """ Tests that the extras in the summary are created properly """
@@ -29,7 +26,6 @@ class TestExtras(TestCase):
         assert hasattr(self.cart_summary, "discount"), "discount attribute missing from instance_summary"
         assert hasattr(self.cart_summary, "delivery"), "delivery attribute missing from instance_summary"
         assert hasattr(self.order_summary, "delivery"), "delivery attribute missing from instance_summary"
-
 
     def test_name_explicit(self):
         """ Tests that the name attribute can be explicitly set."""
@@ -83,19 +79,18 @@ class TestExtras(TestCase):
         """ Tests that the included attribute can be set by a callable."""
         self.assertEqual(self.cart_summary.delivery.included, False)
 
-class TestItems(TestCase):
+
+class Items(TestCase):
 
     def setUp(self):
-        cart = Cart.objects.create()
+        self.cart = Cart.objects.create()
 
         self.product_1 = Product.objects.create(price=Decimal("0.01"))
         self.product_2 = Product.objects.create(price=Decimal("11.22"))
-        self.item_1    = CartItem.objects.create(cart=cart, product=self.product_1)
-        self.item_2    = CartItem.objects.create(cart=cart, product=self.product_2)
+        self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1)
+        self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
 
-        self.cart = Cart.objects.get(pk=cart.pk)
-
-        self.cart_summary = CartSummary(instance=cart)
+        self.cart_summary = CartSummary(self.cart)
 
     def test_items_creation(self):
         assert hasattr(self.cart_summary, "items"), "items attribute missing from instance_summary"
@@ -113,7 +108,20 @@ class TestItems(TestCase):
         self.cart.vouchers.add(voucher)
         self.assertEqual(self.cart_summary.vouchers_total, Decimal("-1.12"))
 
-class TestTotals(TestCase):
+    def test_cache_item_as(self):
+        voucher = Voucher.objects.create(percent=10)
+        self.cart.vouchers.add(voucher)
+        total_one = self.cart_summary.vouchers_total
+        self.assertEqual(self.cart_summary.vouchers[0].VOUCH_AMOUNT_XYZ, Decimal("-1.12"))
+
+        # Change the total, and check that the old one was cached
+        total_one = self.cart_summary.vouchers_total
+        Voucher.objects.all().update(percent=50)
+        total_two = self.cart_summary.vouchers_total
+        self.assertEqual(total_one, total_two)
+        
+
+class Totals(TestCase):
 
     def setUp(self):
         self.cart = Cart.objects.create()
@@ -152,7 +160,7 @@ class TestTotals(TestCase):
 
     def test_custom_method(self):
         """ Tests that access to custom methods/properties/attribtues is enabled. """
-        self.assertEqual(self.cart_summary.custom_method(self.cart_summary.instance), 42)
+        self.assertEqual(self.cart_summary.custom_method(), 42)
 
     def test_model_cache(self):
         """ Checks that summary total is saved to the model instance. """
@@ -173,7 +181,7 @@ class TestTotals(TestCase):
         self.assertEqual(cached_total, Cart.objects.all().aggregate(cached_sum=Sum('cached_total'))['cached_sum'])
 
 
-class TestGeneral(TestCase):
+class GeneralTests(TestCase):
 
     def setUp(self):
         self.cart = Cart.objects.create()
@@ -204,3 +212,35 @@ GST (15%)                  10.03
 Total prevent negative  10019.09
           Items pretax  10001.26
 """.lstrip())
+
+
+
+class RegressionTests(TestCase):
+    def setUp(self):
+        self.cart = Cart.objects.create()
+
+        self.product_1 = Product.objects.create(price=Decimal("0.01"))
+        self.product_2 = Product.objects.create(price=Decimal("11.22"))
+        self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1)
+        self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
+
+        self.cart_summary = CartSummary(instance=self.cart)
+
+    def test_type_error_1(self):
+        """ Issue #1: TypeErrors in functions should not be caught. """
+        self.cart.raise_type_error = True
+        cart_summary = CartSummary(instance=self.cart)
+        self.assertRaises(TypeError, lambda: cart_summary.tax.amount)
+
+        cart_summary = CartSummary(instance=self.cart)
+        self.cart_summary.raise_type_error = True
+        self.assertRaises(TypeError, lambda: self.cart_summary.delivery.amount)
+
+        cart_summary = CartSummary(instance=self.cart)
+        self.cart_summary.raise_type_error = True
+        self.assertRaises(TypeError, lambda: self.cart_summary.my_commission.amount)
+
+        cart_summary = CartSummary(instance=self.cart)
+        self.cart_summary.raise_type_error = True
+        self.assertRaises(TypeError, lambda: self.cart_summary.custom_total)
+

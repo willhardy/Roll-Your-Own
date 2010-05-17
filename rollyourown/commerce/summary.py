@@ -92,7 +92,7 @@ class BoundExtra(object):
     # Resolve values of any callable attributes when accessed.
     verbose_name = property(lambda s:s.resolve_value(s._verbose_name))
     description  = property(lambda s:s.resolve_value(s._description))
-    included     = property(lambda s:s.resolve_value(s._included))
+    included     = property(lambda s:bool(s.resolve_value(s._included)))
 
     @property
     def amount(self):
@@ -103,9 +103,9 @@ class BoundExtra(object):
         """ Generic accessor returning a value, calling it if possible.
         """
         if callable(value):
-            try:
+            if not isinstance(getattr(value, 'im_self', None), Model):
                 return value(self._instance)
-            except TypeError, e:
+            else:
                 return value()
         else:
             return value
@@ -137,10 +137,12 @@ class Extra(object):
         information. Currently it stores a verbose_name (ie "tax"), description
         (ie "10% VAT") and amount ("10.23"). These attributes can of course
         point to functions, which provide the relevant inforamtion.
+
+        NB the first argument is verbose_name, just like Django DB fields
     """
 
-    def __init__(self, verbose_name=NotSet, amount=NotSet,
-                            description=NotSet, included=False):
+    def __init__(self, verbose_name=NotSet, amount=NotSet, 
+                            included=False, description=NotSet):
         self.name = None
         self.verbose_name = verbose_name
         self.amount = amount
@@ -153,7 +155,7 @@ class Extra(object):
         return self.verbose_name
 
     def __str__(self):
-        return str(self.__unicode__())
+        return self.__unicode__().encode("ascii", "ignore")
 
     def __repr__(self):
         return self.__str__()
@@ -163,7 +165,7 @@ class Extra(object):
 
         # Fill in values that are not set
         if self.verbose_name is NotSet:
-            self.verbose_name = " ".join(name.lower().split("_"))
+            self.verbose_name = " ".join(name.split("_")).capitalize()
         if self.description is NotSet:
             self.description = None
         if self.amount is NotSet:
@@ -251,7 +253,7 @@ class Total(object):
 
         # Sum all the items
         for name, queryset in items.items():
-            item_total = sum([i.AMOUNT or Decimal('0') for i in queryset])
+            item_total = sum([getattr(i, summary_instance._items[name].cache_amount_as) or Decimal('0') for i in queryset])
             total += item_total
 
         # Sum all the extras
@@ -264,15 +266,15 @@ class Total(object):
         # Sum any custom amounts
         for name,value in custom.items():
             if callable(value):
-                try:
-                    return value(summary_instance)
-                except TypeError, e: 
+                if isinstance(getattr(value, 'im_self', None), Summary):
                     return value()
+                else:
+                    return value(summary_instance)
             if name in negatives:
                 value = -value
             total += value or Decimal(0)
     
-        if self.prevent_negative and total < 0:
+        if bool(self.prevent_negative) and total < 0:
             total = Decimal(0)
 
         # Save the cached value to the database
@@ -294,13 +296,26 @@ class Total(object):
 class Items(object):
     """ Describes a set of items to be included.
     """
-    def __init__(self, attribute=NotSet, item_amount_from=NotSet):
+    def __init__(self, attribute=NotSet, item_amount_from=NotSet, cache_amount_as="AMOUNT"):
         self.attribute = attribute
         self.item_amount_from = item_amount_from
+        self.cache_amount_as = cache_amount_as
         self.name = None
+
+        # Validate values
+        if (self.item_amount_from is not NotSet 
+                and not self.item_amount_from.startswith("self.") 
+                and not self.item_amount_from.startswith("model.")):
+            msg = "Items() parameter 'item_amount_from' must start with either 'self.' or 'model.' (got %s)" % self.item_amount_from
+            raise SummaryValidationError(msg)
 
     def contribute_to_class(self, cls, name):
         self.name = name
+        if self.attribute is NotSet:
+            self.attribute = name
+        if self.item_amount_from is NotSet:
+            self.item_amount_from = 'self.get_%s_amount' % name
+
         setattr(cls, name, ItemsDescriptor(self))
 
 
@@ -344,9 +359,8 @@ class ItemsDescriptor(object):
             queryset = manager.all().select_related()
 
         for i in queryset:
-            val = self.get_item_unit_total(self.items.item_amount_from, i, obj)
-            amount = self.resolve_value(val, model_instance)
-            i.AMOUNT = FormattedDecimal(amount, summary_instance=obj)
+            amount = self.get_item_unit_total(self.items.item_amount_from, i, obj)
+            setattr(i, self.items.cache_amount_as, FormattedDecimal(amount, summary_instance=obj))
 
         obj._cache[self.items.name] = queryset
         return queryset
@@ -359,25 +373,13 @@ class ItemsDescriptor(object):
                 return getattr(summary_instance, value[5:])(rel_instance)
             elif value.startswith("model.") \
                             and hasattr(rel_instance, value[6:]):
-                val = getattr(rel_instance, value[6:])
-                try:
-                    return val(summary_instance)
-                except TypeError:
-                    try:
-                        return val()
-                    except TypeError:
-                        return val
-
-        return value
-
-    def resolve_value(self, value, model_instance):
-        if callable(value):
-            try:
-                return value(model_instance)
-            except TypeError, e:
-                return value()
-        else:
-            return value
+                value = getattr(rel_instance, value[6:])
+                if callable(value):
+                    return value()
+                else:
+                    return value
+        elif iscallable(value):
+            return value(rel_instance)
 
 
 class SummaryBase(type):
@@ -459,3 +461,48 @@ class Summary(object):
             but this can be cusomised..
         """
         setattr(self.instance, field_name, total)
+
+    def __unicode__(self):
+        """ Produce a text description of the summary.
+        """
+
+        # Process the items
+        item_output = []
+        for items in self._items.keys():
+            # TODO: check that amount is always available
+            item_output.extend([(unicode(i), getattr(i, self._items[items].cache_amount_as)) for i in getattr(self, items)])
+
+        # Process the extras
+        extra_output = []
+        for extra in self._extras:
+            extra = getattr(self, extra)
+            if extra.description:
+                uni_extra = u"%s (%s)" % (extra.verbose_name, extra.description)
+            else:
+                uni_extra = extra.verbose_name
+            extra_output.append((uni_extra, extra.amount))
+
+        # Process the totals
+        total_output = [(" ".join(t.split("_")).capitalize(), getattr(self, t)) for t in self._totals]
+
+        # Setup formatting 
+        entry_length = max(map(len, [unicode(n) for n,v in (item_output+extra_output+total_output)]))
+        max_digits   = max(map(len, ["%.2f"%v for n,v in (item_output+extra_output+total_output)]))
+        decimal_places = 2
+        item_format_string = u'%%-%ds  %%%d.%df' % (entry_length, max_digits, decimal_places)
+        extra_format_string = item_format_string
+        total_format_string = u'%%%ds  %%%d.%df' % (entry_length, max_digits, decimal_places)
+
+        # Produce the output
+        output = []
+        output.extend(item_format_string % i for i in item_output)
+        output.append(u"")
+        output.extend(extra_format_string % i for i in extra_output)
+        output.append(u"")
+        output.extend(total_format_string % i for i in total_output)
+        output.append(u"")
+
+        return "\n".join(output)
+
+    def __str__(self):
+        return self.__unicode__().encode("ascii", "ignore")
