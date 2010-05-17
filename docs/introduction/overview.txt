@@ -6,6 +6,9 @@ Welcome to Roll Your Own
 
 The Django Web Development Framework was developed for the perfectionist developer, someone who wants things done in a particular way. Django does a very good job at allowing and almost anything, it is helpful for most things you want to do, but stays out of the way when you want to do something unexpected.
 
+Approach
+--------
+
 In keeping with this approach, the RollYourOwn frameworks aim to give you the developer as much freedom as possible. A few things are especially important:
 
 - You (the developer) have full control over your database models
@@ -13,21 +16,24 @@ In keeping with this approach, the RollYourOwn frameworks aim to give you the de
 - The framework encourages well organised, concise and reusable code
 
 The developer in control of their models
-========================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. note::
     - The frameworks do not make any assumptions about your desired database model
-    - add an example example
 
 
 Containing complexity
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 .. note::
     - Any inherent complexity in this domain should be in the framework, where it is tested and analysed by more people
-    - add an example example
 
 
 Well organised, concise and reusable
-====================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. note::
     - Provides an clear, interface for the various components of your application
-    - add an example example
+
+
+What next?
+----------
+
+You might like to read the :ref:`Quick install guide <introduction-install>` or start reading through the :ref:`Commerce tutorial <introduction-commerce-tutorial>`.
