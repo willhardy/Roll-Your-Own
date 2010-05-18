@@ -303,7 +303,7 @@ class Total(CommerceElement):
 
         # Save the cached value to the database
         if self.model_cache is not None:
-            summary_instance.save_total(name=self.name, field_name=self.model_cache, total=total)
+            summary_instance.save_total(summary_instance.instance, self.name, self.model_cache, total)
 
         return FormattedDecimal(total, summary_instance=summary_instance)
 
@@ -484,12 +484,13 @@ class Summary(object):
         if callable(self._meta.decimal_html):
             self._meta.decimal_html = self._meta.decimal_html(instance)
 
-    def save_total(self, name, field_name, total):
+    def save_total(self, instance, name, field_name, total):
         """ Save calculated total to model instance. 
-            By default, the model instance isn't automatically saved, 
-            but this can be cusomised..
+            This is a template method and is used when a model cache is set.
+            By default, the model instance isn't
+            automatically saved, but this can of course be overloaded.
         """
-        setattr(self.instance, field_name, total)
+        setattr(instance, field_name, total)
 
     def __unicode__(self):
         """ Produce a text description of the summary.
