@@ -29,6 +29,8 @@ The simplest use is of course getting the relevant amounts::
 
 .. warning :: Any changes to your data after the summary has been created may not be reflected in the summary. This is a deliberate assumption to make optimisation simpler, and is not difficult to abide by. If the summary must be updated, you can recreate it using the updated model instance.
 
+.. note :: The instance you give to your summary class need not actually be a Django model instance. It can be any python object that has the attributes required by the summary class. Instead of a Many-To-Many relationship, your python object can simply have an attribute with a list of item objects (which can simply be another python object).
+
 Numbers can be formatted to the relevant locale (in this case German)::
 
     >>> print my_summary.total

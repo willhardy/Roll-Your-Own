@@ -37,6 +37,8 @@ class OrderItem(models.Model):
     order   = models.ForeignKey(Order)
     quantity = models.PositiveSmallIntegerField(default=1)
 
+    amount = property(lambda self: self.quantity * self.product.price)
+
 class Voucher(models.Model):
     percent = models.DecimalField(max_digits=5, decimal_places=2)
 

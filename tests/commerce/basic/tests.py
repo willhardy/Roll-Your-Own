@@ -243,7 +243,7 @@ Total prevent negative  10019.09
         """ Checks that the items are correctly provided, including ordering. """
         self.assertEqual(self.cart_summary._meta.items.keys(), 
                         ['items', 'vouchers', 'payments'])
-        self.assertEqual(self.order_summary._meta.items.keys(), [])
+        self.assertEqual(self.order_summary._meta.items.keys(), ['items'])
 
     def test_meta_extras(self):
         """ Checks that the extras are correctly provided, including ordering. """
@@ -260,6 +260,28 @@ Total prevent negative  10019.09
         self.assertEqual(self.order_summary._meta.totals.keys(), 
                         ['total'])
 
+    def test_non_model(self):
+        class FakeModel(object):
+            pass
+        class FakeItem(object):
+            quantity = 1
+            amount = 4
+            def __unicode__(self):
+                return "Fake Product"
+        fake_model = FakeModel()
+        fake_model.items = [FakeItem(), FakeItem()]
+        fake_model.vouchers = []
+        summary = OrderSummary(fake_model)
+        self.assertEqual(unicode(summary), u"""
+Fake Product   4.00
+Fake Product   4.00
+
+Delivery      15.00
+
+       Total  23.00
+""".lstrip())
+        
+
 
 class RegressionTests(TestCase):
     def setUp(self):
@@ -272,7 +294,7 @@ class RegressionTests(TestCase):
 
         self.cart_summary = CartSummary(instance=self.cart)
 
-    def test_type_error_1(self):
+    def issue01_test_type_error(self):
         """ Issue #1: TypeErrors in functions should not be caught. """
         self.cart.raise_type_error = True
         cart_summary = CartSummary(instance=self.cart)

@@ -184,7 +184,7 @@ Arguments
 
 .. attribute:: Total.model_cache
 
-    If this value is set, the given string is taken to be the name of an attribute on the model instance which will be set to this total whenever it is calculated. If the value is set on this attribute, the calculation of a total will be skipped. The actual setting of the value is handled by the ``save_total(name, field_name, total)`` method on the ``Summary`` class, which can of course be overloaded.
+    If this value is set, the given string is taken to be the name of an attribute on the model instance which will be set to this total whenever it is calculated. If the value is set on this attribute, the calculation of a total will be skipped. The actual setting of the value is handled by the ``save_total(instance, name, field_name, total)`` template method on the ``Summary`` class, which can of course be overloaded.
     
     Note that this argument must be given as a keyword argument.
 

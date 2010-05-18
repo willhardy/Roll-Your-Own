@@ -236,7 +236,7 @@ By default, this is <tt class="xref docutils literal"><span class="pre">False</s
 <dl class="attribute">
 <dt id="Total.model_cache">
 <!--[Total.model_cache]--><tt class="descclassname">Total.</tt><tt class="descname">model_cache</tt><a class="headerlink" href="#Total.model_cache" title="Permalink to this definition">¶</a></dt>
-<dd><p>If this value is set, the given string is taken to be the name of an attribute on the model instance which will be set to this total whenever it is calculated. If the value is set on this attribute, the calculation of a total will be skipped. The actual setting of the value is handled by the <tt class="docutils literal"><span class="pre">save_total(name,</span> <span class="pre">field_name,</span> <span class="pre">total)</span></tt> method on the <tt class="docutils literal"><span class="pre">Summary</span></tt> class, which can of course be overloaded.</p>
+<dd><p>If this value is set, the given string is taken to be the name of an attribute on the model instance which will be set to this total whenever it is calculated. If the value is set on this attribute, the calculation of a total will be skipped. The actual setting of the value is handled by the <tt class="docutils literal"><span class="pre">save_total(instance,</span> <span class="pre">name,</span> <span class="pre">field_name,</span> <span class="pre">total)</span></tt> template method on the <tt class="docutils literal"><span class="pre">Summary</span></tt> class, which can of course be overloaded.</p>
 <p>Note that this argument must be given as a keyword argument.</p>
 </dd></dl>
 

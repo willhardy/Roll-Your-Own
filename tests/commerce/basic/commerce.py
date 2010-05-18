@@ -56,6 +56,7 @@ class CartSummary(commerce.Summary):
 
 
 class OrderSummary(commerce.Summary):
+    items    = commerce.Items(attribute="items", item_amount_from="model.amount")
     delivery = commerce.Extra()
     total    = commerce.Total()
 

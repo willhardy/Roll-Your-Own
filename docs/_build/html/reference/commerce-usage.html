@@ -75,6 +75,10 @@
 <p class="first admonition-title">Warning</p>
 <p class="last">Any changes to your data after the summary has been created may not be reflected in the summary. This is a deliberate assumption to make optimisation simpler, and is not difficult to abide by. If the summary must be updated, you can recreate it using the updated model instance.</p>
 </div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The instance you give to your summary class need not actually be a Django model instance. It can be any python object that has the attributes required by the summary class. Instead of a Many-To-Many relationship, your python object can simply have an attribute with a list of item objects (which can simply be another python object).</p>
+</div>
 <p>Numbers can be formatted to the relevant locale (in this case German):</p>
 <div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">total</span>
 <span class="go">$1.234,56</span>

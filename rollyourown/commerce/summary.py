@@ -19,10 +19,14 @@
 """
 
 from decimal import Decimal
-from django.db.models.base import ModelBase, Model
-from django.db.models.fields import FieldDoesNotExist
 from rollyourown.commerce.utils import FormattedDecimal
 from django.utils.datastructures import SortedDict
+
+# Django models are not necessary, but receieve special attention (eg through=
+# arguments are honoured). The following imports to do affect the 
+# policy of not requiring django models.
+from django.db.models.fields import FieldDoesNotExist
+from django.db.models.manager import Manager
 
 
 class NotSet(object):
@@ -107,8 +111,8 @@ class BoundExtra(object):
             the only argument.
         """
         if callable(value):
-            # Is this callable a method on a django Model instance?
-            if isinstance(getattr(value, 'im_self', None), Model):
+            # Is this callable a method on our instance?
+            if getattr(value, 'im_self', None) is self._instance:
                 return value()
             else:
                 return value(self._instance)
@@ -229,7 +233,8 @@ class Total(CommerceElement):
         self.name = None
 
         if kwargs:
-            raise SummaryValidationError("Unknown keyword argument for Total: %s" % kwargs.keys()[0])
+            msg = "Unknown keyword argument for Total: %s" % kwargs.keys()[0]
+            raise SummaryValidationError(msg)
 
         super(Total, self).__init__()
 
@@ -275,8 +280,9 @@ class Total(CommerceElement):
         total = Decimal(0)
 
         # Sum all the items
-        for name, queryset in items.items():
-            item_total = sum([getattr(i, summary_instance._meta.items[name].cache_amount_as) or Decimal('0') for i in queryset])
+        for name, qs in items.items():
+            attribute_name = summary_instance._meta.items[name].cache_amount_as
+            item_total = sum([getattr(i, attribute_name) or 0 for i in qs])
             total += item_total
 
         # Sum all the extras
@@ -289,8 +295,8 @@ class Total(CommerceElement):
         # Sum any custom amounts
         for name,value in custom.items():
             if callable(value):
-                # Is this callable a method on a django Model instance?
-                if isinstance(getattr(value, 'im_self', None), Summary):
+                # If this is a method on our Summary instance
+                if getattr(value, 'im_self', None) is summary_instance:
                     return value()
                 else:
                     return value(summary_instance)
@@ -303,7 +309,8 @@ class Total(CommerceElement):
 
         # Save the cached value to the database
         if self.model_cache is not None:
-            summary_instance.save_total(summary_instance.instance, self.name, self.model_cache, total)
+            summary_instance.save_total(summary_instance.instance, self.name,
+                                                self.model_cache, total)
 
         return FormattedDecimal(total, summary_instance=summary_instance)
 
@@ -314,14 +321,15 @@ class Total(CommerceElement):
 # These reference a group of objects, whose sum is to be included in a total.
 # The objects are retrieved from the database once, and processing is done
 # in Python, as there generally wont be many items.
-# A descriptor is again used to populate and cache the list of items at runtime.
+# A descriptor is again used to populate and cache the list of items at runtime
 #
 
 class Items(CommerceElement):
     """ Describes a set of items to be included.
     """
 
-    def __init__(self, attribute=NotSet, item_amount_from=NotSet, cache_amount_as="AMOUNT"):
+    def __init__(self, attribute=NotSet, item_amount_from=NotSet, 
+                                                cache_amount_as="AMOUNT"):
         self.attribute = attribute
         self.item_amount_from = item_amount_from
         self.cache_amount_as = cache_amount_as
@@ -331,7 +339,8 @@ class Items(CommerceElement):
         if (self.item_amount_from is not NotSet 
                 and not self.item_amount_from.startswith("self.") 
                 and not self.item_amount_from.startswith("model.")):
-            msg = "Items() parameter 'item_amount_from' must start with either 'self.' or 'model.' (got %s)" % self.item_amount_from
+            msg = ("Items() parameter 'item_amount_from' must start with" 
+                   "either 'self.' or 'model.' (got %s)" % self.item_amount_from)
             raise SummaryValidationError(msg)
 
         super(Items, self).__init__()
@@ -384,12 +393,17 @@ class ItemsDescriptor(object):
         # Otherwise, just use django to get the queryset
         except (FieldDoesNotExist, AttributeError):
             manager = getattr(model_instance, self.items.attribute)
-            queryset = manager.all().select_related()
+            if isinstance(manager, Manager):
+                queryset = manager.all().select_related()
+            else:
+                queryset = manager
 
-        # Calculate the amounts now, they will most likely be required later (eg in totals)
+        # Calculate the amounts now, they will most likely be required later
+        item_amount_from = self.items.item_amount_from
         for i in queryset:
-            amount = self.get_item_unit_total(self.items.item_amount_from, i, obj)
-            setattr(i, self.items.cache_amount_as, FormattedDecimal(amount, summary_instance=obj))
+            amount = self.get_item_unit_total(item_amount_from, i, obj)
+            setattr(i, self.items.cache_amount_as, 
+                            FormattedDecimal(amount, summary_instance=obj))
 
         obj._cache[self.items.name] = queryset
         return queryset
@@ -451,8 +465,10 @@ class SummaryBase(type):
         new_class = super(SummaryBase, cls).__new__(cls, name, bases, attrs)
         _meta = SummaryOptions(attrs.pop('Meta', {}))
 
-        elements = [(name, attrs.pop(name)) for name, obj in attrs.items() if isinstance(obj, CommerceElement)]
-        elements.sort(lambda x, y: cmp(x[1].creation_counter, y[1].creation_counter))
+        elements = [(name, attrs.pop(name)) for name, obj in attrs.items() 
+                                        if isinstance(obj, CommerceElement)]
+        elements.sort(lambda x, y: cmp(x[1].creation_counter, 
+                                                y[1].creation_counter))
 
         for key, value in elements:
             _meta.add_element(key, value)
