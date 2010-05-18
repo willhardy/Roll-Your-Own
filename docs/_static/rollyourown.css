@@ -49,9 +49,9 @@ div.nav { margin: 0; font-size: 11px; text-align: right; color: #777;}
 dd { margin-left:15px; }
 h1,h2,h3,h4 { margin-top:1em; font-family:"Trebuchet MS",sans-serif; font-weight:normal; }
 h1 { font-size:218%; margin-top:0.6em; margin-bottom:.4em; line-height:1.1em; }
-h2 { font-size:175%; margin-bottom:.6em; line-height:1.2em; color:#222; }
-h3 { font-size:150%; font-weight:bold; margin-bottom:.2em; color:#777; }
-h4 { font-size:125%; font-weight:bold; margin-top:1.5em; margin-bottom:3px; }
+h2 { font-size:175%; margin-bottom:.6em; line-height:1.2em; color:#222; border-bottom: 1px solid #ccc;}
+h3 { font-size:150%; font-weight:normal; margin-bottom:.2em; color:#222; }
+h4 { font-size:100%; font-weight:bold; margin-top:1.5em; margin-bottom:3px; color: #222}
 div.figure { text-align: center; }
 div.figure p.caption { font-size:1em; margin-top:0; margin-bottom:1.5em; color: #555;}
 hr { color:#ccc; background-color:#ccc; height:1px; border:0; }
@@ -86,10 +86,10 @@ ol.toc span.release-date { color:#777; float: right; font-size: 85%; padding-rig
 ol.toc span.comment-count { font-size: 75%; color: #999; }
 
 /*** tables ***/
-table { color:#000; margin-bottom: 1em; width: 100%; }
+table { color:#000; margin-bottom: 1em; border-color: white; }
 table.docutils td p { margin-top:0; margin-bottom:.5em; }
-table.docutils td, table.docutils th { border-bottom:1px solid #dfdfdf; padding:4px 2px;}
-table.docutils thead th { border-bottom:2px solid #dfdfdf; text-align:left; font-weight: bold; white-space: nowrap; }
+table.docutils td, table.docutils th { padding:4px 10px; border-color: white; }
+table.docutils thead th { padding: 2px 10px; border-color: white; border-bottom: 1px solid #aaa; text-align:left; font-weight: bold; white-space: nowrap; }
 table.docutils thead th p { margin: 0; padding: 0; }
 table.docutils { border-collapse:collapse; }
 
@@ -110,6 +110,7 @@ dt .literal, table .literal { background:none; }
 .note, .admonition { padding-left:65px; background:url(docicons-note.png) .8em .8em no-repeat;}
 div.admonition-philosophy { padding-left:65px; background:url(docicons-philosophy.png) .8em .8em no-repeat;}
 div.admonition-behind-the-scenes { padding-left:65px; background:url(docicons-behindscenes.png) .8em .8em no-repeat;}
+.class dt { background: #eee; border: 1px solid #ccc; padding: 8px; color: #444; margin: 4px; font-weight: normal; font-size: 100%; text-align: center; }
 
 /*** versoinadded/changes ***/
 div.versionadded, div.versionchanged {  }

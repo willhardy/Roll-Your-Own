@@ -22,6 +22,7 @@ from decimal import Decimal
 from django.db.models.base import ModelBase, Model
 from django.db.models.fields import FieldDoesNotExist
 from rollyourown.commerce.utils import FormattedDecimal
+from django.utils.datastructures import SortedDict
 
 
 class NotSet(object):
@@ -101,17 +102,24 @@ class BoundExtra(object):
 
     def resolve_value(self, value):
         """ Generic accessor returning a value, calling it if possible.
+            Methods on a model instance are called with no arguments, 
+            all other callables are called with the model instance as
+            the only argument.
         """
         if callable(value):
-            if not isinstance(getattr(value, 'im_self', None), Model):
-                return value(self._instance)
-            else:
+            # Is this callable a method on a django Model instance?
+            if isinstance(getattr(value, 'im_self', None), Model):
                 return value()
+            else:
+                return value(self._instance)
         else:
             return value
 
     def __unicode__(self):
-        return self.verbose_name
+        if self.description:
+            return u"%s (%s)" % (self.verbose_name, self.description)
+        else:
+            return self.verbose_name
 
     def get_referenced_method(self, attribute):
         """ This allows instance objects to be referenced by string. If the
@@ -131,8 +139,18 @@ class BoundExtra(object):
 
         return value
 
+class CommerceElement(object):
+    """ Parent class for summary elements.
+    """
+    creation_counter = 0
 
-class Extra(object):
+    def __init__(self):
+        # Set and increment the creation counter, to keep track of ordering
+        self.creation_counter = CommerceElement.creation_counter
+        CommerceElement.creation_counter += 1
+
+
+class Extra(CommerceElement):
     """ Describes an extra cost or discount, providing access to related
         information. Currently it stores a verbose_name (ie "tax"), description
         (ie "10% VAT") and amount ("10.23"). These attributes can of course
@@ -150,6 +168,8 @@ class Extra(object):
         self.included = included
         #display = None # For the future
         #currency = None # For the future
+
+        super(Extra, self).__init__()
 
     def __unicode__(self):
         return self.verbose_name
@@ -198,9 +218,10 @@ class TotalDescriptor(object):
         pass
 
 
-class Total(object):
+class Total(CommerceElement):
     """ Describes a set of items to be included.
     """
+
     def __init__(self, *args, **kwargs):
         self.attributes = args
         self.prevent_negative = kwargs.pop('prevent_negative', False)
@@ -209,6 +230,8 @@ class Total(object):
 
         if kwargs:
             raise SummaryValidationError("Unknown keyword argument for Total: %s" % kwargs.keys()[0])
+
+        super(Total, self).__init__()
 
     def contribute_to_class(self, cls, name):
         self.name = name
@@ -231,11 +254,11 @@ class Total(object):
                 value = getattr(summary_instance, name)
 
                 # Handle items
-                if name in summary_instance._items:
+                if name in summary_instance._meta.items:
                     items[name] = value
 
                 # Handle extras
-                elif name in summary_instance._extras:
+                elif name in summary_instance._meta.extras:
                     extras[name] = value
 
                 # Handle custom methods and attributes
@@ -245,15 +268,15 @@ class Total(object):
         # If no attributes are given, use all items, and all extras
         else:
             items = dict([(name,getattr(summary_instance, name))
-                                    for name in summary_instance._items])
+                                    for name in summary_instance._meta.items])
             extras = dict([(name,getattr(summary_instance, name))
-                                    for name in summary_instance._extras])
+                                    for name in summary_instance._meta.extras])
 
         total = Decimal(0)
 
         # Sum all the items
         for name, queryset in items.items():
-            item_total = sum([getattr(i, summary_instance._items[name].cache_amount_as) or Decimal('0') for i in queryset])
+            item_total = sum([getattr(i, summary_instance._meta.items[name].cache_amount_as) or Decimal('0') for i in queryset])
             total += item_total
 
         # Sum all the extras
@@ -266,6 +289,7 @@ class Total(object):
         # Sum any custom amounts
         for name,value in custom.items():
             if callable(value):
+                # Is this callable a method on a django Model instance?
                 if isinstance(getattr(value, 'im_self', None), Summary):
                     return value()
                 else:
@@ -293,9 +317,10 @@ class Total(object):
 # A descriptor is again used to populate and cache the list of items at runtime.
 #
 
-class Items(object):
+class Items(CommerceElement):
     """ Describes a set of items to be included.
     """
+
     def __init__(self, attribute=NotSet, item_amount_from=NotSet, cache_amount_as="AMOUNT"):
         self.attribute = attribute
         self.item_amount_from = item_amount_from
@@ -308,6 +333,9 @@ class Items(object):
                 and not self.item_amount_from.startswith("model.")):
             msg = "Items() parameter 'item_amount_from' must start with either 'self.' or 'model.' (got %s)" % self.item_amount_from
             raise SummaryValidationError(msg)
+
+        super(Items, self).__init__()
+
 
     def contribute_to_class(self, cls, name):
         self.name = name
@@ -358,6 +386,7 @@ class ItemsDescriptor(object):
             manager = getattr(model_instance, self.items.attribute)
             queryset = manager.all().select_related()
 
+        # Calculate the amounts now, they will most likely be required later (eg in totals)
         for i in queryset:
             amount = self.get_item_unit_total(self.items.item_amount_from, i, obj)
             setattr(i, self.items.cache_amount_as, FormattedDecimal(amount, summary_instance=obj))
@@ -381,6 +410,34 @@ class ItemsDescriptor(object):
         elif iscallable(value):
             return value(rel_instance)
 
+class SummaryOptions(object):
+    def __init__(self, meta_options):
+        self.locale = getattr(meta_options, 'locale', None)
+        self.currency = getattr(meta_options, 'currency', None)
+        self.decimal_html = getattr(meta_options, 'decimal_html', None)
+
+        self.items = SortedDict()
+        self.extras = SortedDict()
+        self.totals = SortedDict()
+
+        if self.locale and self.locale.startswith("self."):
+            self.locale = attrs[locale[5:]]
+
+        if self.currency and self.currency.startswith("self."):
+            self.currency = attrs[self.currency[5:]]
+
+        if self.decimal_html and self.decimal_html.startswith("self."):
+            self.decimal_html = attrs[self.decimal_html[5:]]
+
+    def add_element(self, key, value):
+        """ Adds an element to one of the lists. """
+        if isinstance(value, Items):
+            self.items[key] = value
+        elif isinstance(value, Extra):
+            self.extras[key] = value
+        elif isinstance(value, Total):
+            self.totals[key] = value
+
 
 class SummaryBase(type):
 
@@ -392,68 +449,40 @@ class SummaryBase(type):
 
     def __new__(cls, name, bases, attrs):
         new_class = super(SummaryBase, cls).__new__(cls, name, bases, attrs)
+        _meta = SummaryOptions(attrs.pop('Meta', {}))
 
-        # This will setup and store the extras that will be needed, from which
-        # BoundExtra objects can be created at instantiation.
-        extras = {}
-        items = {}
-        totals = {}
+        elements = [(name, attrs.pop(name)) for name, obj in attrs.items() if isinstance(obj, CommerceElement)]
+        elements.sort(lambda x, y: cmp(x[1].creation_counter, y[1].creation_counter))
 
-        if 'Meta' in attrs:
-            Meta = attrs.pop('Meta')
-
-            locale = getattr(Meta, 'locale', None)
-            if locale and locale.startswith("self."):
-                locale = attrs[locale[5:]]
-            new_class.add_to_class('_locale', locale)
-
-            currency = getattr(Meta, 'currency', None)
-            if currency and currency.startswith("self."):
-                currency = attrs[currency[5:]]
-            new_class.add_to_class('_currency', currency)
-
-            html = getattr(Meta, 'decimal_html', None)
-            if html and html.startswith("self."):
-                html = attrs[html[5:]]
-            new_class.add_to_class('_html', html)
-
-        for key, value in attrs.items():
-            if isinstance(value, Items):
-                items[key] = value
-            elif isinstance(value, Extra):
-                extras[key] = value
-            elif isinstance(value, Total):
-                totals[key] = value
-
-            attrs.pop(key)
+        for key, value in elements:
+            _meta.add_element(key, value)
             new_class.add_to_class(key, value)
 
-        new_class.add_to_class('_extras', extras)
-        new_class.add_to_class('_items', items)
-        new_class.add_to_class('_totals', totals)
+        new_class.add_to_class('_meta', _meta)
+
+        # Add the remaining attributes
+        for key, value in attrs.items():
+            new_class.add_to_class(key, value)
 
         return new_class
 
 
 class Summary(object):
     __metaclass__ = SummaryBase
-    _locale = None
-    _currency = None
-    _html = None
 
     def __init__(self, instance, locale=None):
         self.instance = instance
         self._cache = {}
         if locale:
-            self._locale = locale
+            self._meta.locale = locale
 
         # Call any callables now that we have the instance we need
-        if callable(self._locale):
-            self._locale = self._locale(instance)
-        if callable(self._currency):
-            self._currency = self._currency(instance)
-        if callable(self._html):
-            self._html = self._html(instance)
+        if callable(self._meta.locale):
+            self._meta.locale = self._meta.locale(instance)
+        if callable(self._meta.currency):
+            self._meta.currency = self._meta.currency(instance)
+        if callable(self._meta.decimal_html):
+            self._meta.decimal_html = self._meta.decimal_html(instance)
 
     def save_total(self, name, field_name, total):
         """ Save calculated total to model instance. 
@@ -466,38 +495,24 @@ class Summary(object):
         """ Produce a text description of the summary.
         """
 
-        # Process the items
+        # Collect the elements
         item_output = []
-        for items in self._items.keys():
-            # TODO: check that amount is always available
-            item_output.extend([(unicode(i), getattr(i, self._items[items].cache_amount_as)) for i in getattr(self, items)])
+        for items in self._meta.items.keys():
+            item_output.extend([(unicode(i), getattr(i, self._meta.items[items].cache_amount_as)) for i in getattr(self, items)])
+        extra_output = [(unicode(getattr(self, e)), getattr(self, e).amount) for e in self._meta.extras]
+        total_output = [(" ".join(t.split("_")).capitalize(), getattr(self, t)) for t in self._meta.totals]
 
-        # Process the extras
-        extra_output = []
-        for extra in self._extras:
-            extra = getattr(self, extra)
-            if extra.description:
-                uni_extra = u"%s (%s)" % (extra.verbose_name, extra.description)
-            else:
-                uni_extra = extra.verbose_name
-            extra_output.append((uni_extra, extra.amount))
-
-        # Process the totals
-        total_output = [(" ".join(t.split("_")).capitalize(), getattr(self, t)) for t in self._totals]
-
-        # Setup formatting 
+        # Setup formatting (assumes 2 decimal_places)
         entry_length = max(map(len, [unicode(n) for n,v in (item_output+extra_output+total_output)]))
         max_digits   = max(map(len, ["%.2f"%v for n,v in (item_output+extra_output+total_output)]))
-        decimal_places = 2
-        item_format_string = u'%%-%ds  %%%d.%df' % (entry_length, max_digits, decimal_places)
-        extra_format_string = item_format_string
-        total_format_string = u'%%%ds  %%%d.%df' % (entry_length, max_digits, decimal_places)
+        item_format_string = u'%%-%ds  %%%d.%df' % (entry_length, max_digits, 2)
+        total_format_string = u'%%%ds  %%%d.%df' % (entry_length, max_digits, 2)
 
         # Produce the output
         output = []
         output.extend(item_format_string % i for i in item_output)
         output.append(u"")
-        output.extend(extra_format_string % i for i in extra_output)
+        output.extend(item_format_string % i for i in extra_output)
         output.append(u"")
         output.extend(total_format_string % i for i in total_output)
         output.append(u"")

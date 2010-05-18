@@ -10,6 +10,8 @@ from models import Cart, Order, Product, CartItem, Voucher
 from commerce import CartSummary, OrderSummary
 from decimal import Decimal
 from django.db.models import Sum
+from django.utils.datastructures import SortedDict
+
 
 class Extras(TestCase):
     def setUp(self):
@@ -185,6 +187,7 @@ class GeneralTests(TestCase):
 
     def setUp(self):
         self.cart = Cart.objects.create()
+        self.order = Order.objects.create()
 
         self.product_1 = Product.objects.create(price=Decimal("0.01"), name="Product One")
         self.product_2 = Product.objects.create(price=Decimal("10011.22"), name="Product Two")
@@ -192,6 +195,7 @@ class GeneralTests(TestCase):
         self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
 
         self.cart_summary = CartSummary(instance=self.cart)
+        self.order_summary = OrderSummary(instance=self.cart)
 
     def test_unicode(self):
         """ Tests the standard unicode output of a summary.  """
@@ -199,20 +203,62 @@ class GeneralTests(TestCase):
 7x Product One              0.07
 1x Product Two          10011.22
 
-Lieferung (Interstate)     10.01
-Rabatt (Mates Rates)      -12.23
 My commission              10.02
 GST (15%)                  10.03
+Rabatt (Mates Rates)      -12.23
+Lieferung (Interstate)     10.01
 
+           Items total  10011.29
+          Items pretax  10001.26
         Vouchers total      0.00
                  Total  10019.09
-          Custom total     42.00
-           Items total  10011.29
-          Cached total  10011.29
 Total prevent negative  10019.09
-          Items pretax  10001.26
+          Custom total     42.00
+          Cached total  10011.29
 """.lstrip())
 
+    def test_meta(self):
+        """ Checks that a meta attribute is created. """
+        assert hasattr(self.cart_summary, '_meta'), 'No _meta attribute created when specified'
+        assert hasattr(self.order_summary, '_meta'), 'No _meta attribute created automatically'
+
+    def test_meta_locale(self):
+        """ Checks that the locale is made available. """
+        self.assertEqual(self.cart_summary._meta.locale, "en-AU")
+        self.assertEqual(self.order_summary._meta.locale, None)
+
+    def test_meta_currency(self):
+        """ Checks that the currency is made available. """
+        self.assertEqual(self.cart_summary._meta.currency, "EUR")
+        self.assertEqual(self.order_summary._meta.currency, None)
+
+    def test_meta_decimal_html(self):
+        """ Checks that the decimal html format is made available. """
+        self.assertEqual(self.cart_summary._meta.decimal_html, 
+                         '<span class="minor">%(minor)s</span>')
+        self.assertEqual(self.order_summary._meta.decimal_html, 
+                         None)
+
+    def test_meta_items(self):
+        """ Checks that the items are correctly provided, including ordering. """
+        self.assertEqual(self.cart_summary._meta.items.keys(), 
+                        ['items', 'vouchers', 'payments'])
+        self.assertEqual(self.order_summary._meta.items.keys(), [])
+
+    def test_meta_extras(self):
+        """ Checks that the extras are correctly provided, including ordering. """
+        self.assertEqual(self.cart_summary._meta.extras.keys(), 
+                        ['my_commission', 'tax', 'discount', 'delivery'])
+        self.assertEqual(self.order_summary._meta.extras.keys(), 
+                        ['delivery'])
+
+    def test_meta_totals(self):
+        """ Checks that the totals are correctly provided, including ordering. """
+        self.assertEqual(self.cart_summary._meta.totals.keys(), 
+                        ['items_total', 'items_pretax', 'vouchers_total', 'total', 
+                        'total_prevent_negative', 'custom_total', 'cached_total'])
+        self.assertEqual(self.order_summary._meta.totals.keys(), 
+                        ['total'])
 
 
 class RegressionTests(TestCase):

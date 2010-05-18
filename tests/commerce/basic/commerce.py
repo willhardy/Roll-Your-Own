@@ -30,6 +30,11 @@ class CartSummary(commerce.Summary):
     custom_total  = commerce.Total('custom_method')
     cached_total  = commerce.Total('items', model_cache="cached_total")
 
+    class Meta:
+        locale = "en-AU"
+        currency = "EUR"
+        decimal_html = '<span class="minor">%(minor)s</span>'
+
     def delivery_amount(self, instance): 
         raise_type_error_when_requested(self)
         return "10.01"

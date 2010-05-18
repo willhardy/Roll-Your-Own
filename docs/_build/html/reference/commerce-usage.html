@@ -50,6 +50,120 @@
   
   <div class="section" id="summary-instance-methods">
 <span id="reference-commerce-usage"></span><h1 id="summary-instance-methods"><span id="reference-commerce-usage"></span>Summary instance methods<a class="headerlink" href="#summary-instance-methods" title="Permalink to this headline">¶</a></h1>
+<p>Having <a class="reference external" href="commerce-syntax.html#reference-commerce-syntax"><em>defined our Summary class</em></a>, we can now put it to use in querying and formatting our financial information. Given the following summary definition:</p>
+<div class="highlight"><pre><span class="k">class</span> <span class="nc">MySummary</span><span class="p">(</span><span class="n">commerce</span><span class="o">.</span><span class="n">Summary</span><span class="p">):</span>
+    <span class="n">products</span> <span class="o">=</span> <span class="n">commerce</span><span class="o">.</span><span class="n">Items</span><span class="p">()</span>
+    <span class="n">delivery</span> <span class="o">=</span> <span class="n">commerce</span><span class="o">.</span><span class="n">Delivery</span><span class="p">()</span>
+    <span class="n">total</span>    <span class="o">=</span> <span class="n">commerce</span><span class="o">.</span><span class="n">Total</span><span class="p">()</span>
+
+    <span class="k">class</span> <span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">currency</span> <span class="o">=</span> <span class="s">&quot;USD&quot;</span>
+        <span class="n">locale</span> <span class="o">=</span> <span class="s">&quot;de-DE&quot;</span>
+</pre></div>
+<p>The simplest use is of course getting the relevant amounts:</p>
+<div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span> <span class="o">=</span> <span class="n">MySummary</span><span class="p">(</span><span class="n">my_model_instance</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">total</span>
+<span class="go">1234.56</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">delivery</span>
+<span class="go">129.90</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">products</span>
+<span class="go">[&lt;Product: First Product&gt;, &lt;Product: Second Product&gt;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">products</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span><span class="o">.</span><span class="n">AMOUNT</span>
+<span class="go">933.12</span>
+</pre></div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Any changes to your data after the summary has been created may not be reflected in the summary. This is a deliberate assumption to make optimisation simpler, and is not difficult to abide by. If the summary must be updated, you can recreate it using the updated model instance.</p>
+</div>
+<p>Numbers can be formatted to the relevant locale (in this case German):</p>
+<div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">total</span>
+<span class="go">$1.234,56</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span>
+<span class="go">First Product   $   933,12</span>
+<span class="go">Second Product  $   171,54</span>
+
+<span class="go">Delivery        $   129,90</span>
+<span class="go">         Total  $ 1.234,56</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">total</span><span class="o">.</span><span class="n">html</span>
+<span class="go">&lt;span class=&quot;money&quot;&gt;&lt;span class=&quot;currency&quot;&gt;$&lt;/span&gt;1.234&lt;span class=&quot;cents&quot;&gt;,56&lt;/span&gt;&lt;/span&gt;</span>
+</pre></div>
+<div class="section" id="accessing-elements">
+<h2 id="accessing-elements">Accessing elements<a class="headerlink" href="#accessing-elements" title="Permalink to this headline">¶</a></h2>
+<p>Each type of element (<tt class="docutils literal"><span class="pre">Items</span></tt>, <tt class="docutils literal"><span class="pre">Extra</span></tt>, <tt class="docutils literal"><span class="pre">Total</span></tt>) has a slightly different form.</p>
+<p>When you access an <tt class="docutils literal"><span class="pre">Items</span></tt> attribute (eg. <tt class="docutils literal"><span class="pre">my_summary.products</span></tt>) you get a Django QuerySet in return. The queryset is identical to a QuerySet returned when using Django&#8217;s model API, except that the relevant amount for each item (see <a title="Items.item_amount_from" class="reference external" href="commerce-syntax.html#Items.item_amount_from"><tt class="xref docutils literal"><span class="pre">item_amount_from</span></tt></a>) is included as an additional attribute. The name of the attribute is by default <tt class="docutils literal"><span class="pre">AMOUNT</span></tt>, but can be defined by setting the <a title="Items.cache_amount_as" class="reference external" href="commerce-syntax.html#Items.cache_amount_as"><tt class="xref docutils literal"><span class="pre">cache_amount_as</span></tt></a> parameter when defining the Summary class.  The queryset is retrieved only once, and the amount is calculated only once.</p>
+<p><tt class="docutils literal"><span class="pre">Extra</span></tt> elements are returned as a special object with four attributes:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="53%" />
+<col width="47%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Attribute</th>
+<th class="head">Type</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td><tt class="docutils literal"><span class="pre">.extra.verbose_name</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">unicode</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">.extra.amount</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">FormattedDecimal</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">.extra.included</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">bool</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">.extra.description</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">unicode</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p><tt class="docutils literal"><span class="pre">Total</span></tt> elements are simply <tt class="docutils literal"><span class="pre">FormattedDecimal</span></tt> objects.</p>
+<p>Each of the elements can be programmatically accessed using the <tt class="docutils literal"><span class="pre">_meta</span></tt> attribute of the summary. The <tt class="docutils literal"><span class="pre">_meta</span></tt> attribute may change in the future, but will contain at least the following attributes:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="36%" />
+<col width="64%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Attribute</th>
+<th class="head">Type</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td><tt class="docutils literal"><span class="pre">._meta.locale</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">unicode</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">._meta.currency</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">unicode</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">._meta.decimal_html</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">unicode</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">._meta.extras</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">OrderedDict</span></tt> of all <tt class="docutils literal"><span class="pre">Extra</span></tt> elements</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">._meta.items</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">OrderedDict</span></tt> of all <tt class="docutils literal"><span class="pre">Items</span></tt> elements</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">._meta.totals</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">OrderedDict</span></tt> of all <tt class="docutils literal"><span class="pre">Total</span></tt> elements</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="formatting">
+<h2 id="formatting">Formatting<a class="headerlink" href="#formatting" title="Permalink to this headline">¶</a></h2>
+<p>A <tt class="docutils literal"><span class="pre">FormattedDecimal</span></tt> works exactly like a decimal, except it has a few extra formatting abilities attached:</p>
+<div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">total</span>
+<span class="go">Decimal(&quot;1234.56&quot;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">total</span> <span class="o">+</span> <span class="mf">7</span>
+<span class="go">Decimal(&quot;1241.56&quot;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">total</span>
+<span class="go">$1.234,56</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">total</span><span class="o">.</span><span class="n">html</span>
+<span class="go">u&#39;&lt;span class=&quot;money&quot;&gt;&lt;span class=&quot;currency&quot;&gt;$&lt;/span&gt;1.234&lt;span class=&quot;cents&quot;&gt;,56&lt;/span&gt;&lt;/span&gt;&#39;</span>
+</pre></div>
+</div>
 </div>
 
 
@@ -62,6 +176,15 @@
             
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+            <h3>Table Of Contents</h3>
+            <ul>
+<li><a class="reference external" href="">Summary instance methods</a><ul>
+<li><a class="reference external" href="#accessing-elements">Accessing elements</a></li>
+<li><a class="reference external" href="#formatting">Formatting</a></li>
+</ul>
+</li>
+</ul>
+
   <h3>Browse</h3>
   <ul>
     
@@ -96,7 +219,7 @@
         </div>
       </div>
               <h3>Last update:</h3>
-              <p class="topless">May 17, 2010</p>
+              <p class="topless">May 19, 2010</p>
           </div> 
         
       

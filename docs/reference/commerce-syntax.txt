@@ -36,6 +36,7 @@ When this is defined, the framework treats ``Items`` and ``Extra`` as input and 
 
 Each summary is eventually linked to a Django model instance. The fields of the model provide the data for the ``Items`` and ``Extra`` input, and these can be specified as explained below.
 
+
 Items
 =====
 
@@ -197,3 +198,79 @@ Example
         total   = commerce.Total()
         pretax  = commerce.Total('items', 'delivery', '-tax')
         to_pay  = commerce.Total(prevent_negative=True)
+
+
+Meta Options
+============
+
+Summary classes can be annotated with meta information that helps provide context for what you are doing. These are defined in the same way Django adds meta information to its classes. The following attributes help with automated number formatting, based on the locale, currency and context. Note that if Babel_ is installed, it's extensive locale database is used, otherwise the framework falls back to using Django's own formatting, included in Django 1.2 and upwards.
+
+    .. _babel: http://babel.edgewall.org/
+
+Attributes
+~~~~~~~~~~
+
+.. attribute:: Summary.Meta.locale
+
+    Locale to help provide automatic formatting of numbers. For example 9,765.34 would be 9.765,34 in Germany.     - If you are referencing the a method in the Summary instance, use ``"self.XYZ"``. If it is callable, it is called with a single argument (the model instance). 
+    - You can also pass a callable, which is called with the model instance as an argument.
+
+
+.. attribute:: Summary.Meta.currency
+
+    Relevant currency (eg ISO-4217 or just a symbol) for this Summary. Generally, only one currency is used for financial transactions, so the whole summary will be formatted using this currency.
+
+    - If you are referencing the a method in the Summary instance, use ``"self.XYZ"``. If it is callable, it is called with a single argument (the model instance). 
+    - You can also pass a callable, which is called with the model instance as an argument.
+
+.. attribute:: Summary.Meta.decimal_html
+
+    The template for formatting numbers in html. This can be a string (or a callable producing a string) with placeholders for python string substitution.
+
+    - If you are referencing the a method in the Summary instance, use ``"self.XYZ"``. If it is callable, it is called with a single argument (the model instance). 
+    - You can also pass a callable, which is called with the model instance as an argument.
+
+    A dictionary will be used with the following information available: 
+
+    ================  ==============
+    Key               Example
+    ================  ==============
+    ``value``         ``"1,234.56"``
+    ``curr_sym``      ``"$"``
+    ``decimal_sym``   ``"."``
+    ``major``         ``"1,234"``
+    ``minor``         ``"56"``
+    ================  ==============
+
+    The default value is::
+
+        'span class="money">'
+        '<span class="currency">%(curr_sym)s</span>%(major)s'
+        '<span class="cents">%(decimal_sym)s%(minor)s</span>'
+        '</span>'
+
+    Which would produce something equivalent to:
+
+    .. code-block:: html
+
+        <span class="money">
+          <span class="currency">$</span>123<span class="cents">.45</span>
+        </span>
+
+Example
+~~~~~~~
+
+::
+
+    class MySummary(rollyourown.Summary):
+        class Meta:
+            locale = 'en-AU'
+            currency = 'self.get_currency'
+        
+        def get_currency(self, instance):
+            return instance.currency or 'AUD'
+
+What next?
+==========
+
+Once you have defined your Summary object, you now need to be able to use it. The :ref:`Summary class usage reference <reference-commerce-usage>` will be useful here.

@@ -251,6 +251,96 @@ By default, this is <tt class="xref docutils literal"><span class="pre">False</s
 </pre></div>
 </div>
 </div>
+<div class="section" id="meta-options">
+<h2 id="meta-options">Meta Options<a class="headerlink" href="#meta-options" title="Permalink to this headline">¶</a></h2>
+<p>Summary classes can be annotated with meta information that helps provide context for what you are doing. These are defined in the same way Django adds meta information to its classes. The following attributes help with automated number formatting, based on the locale, currency and context. Note that if <a class="reference external" href="http://babel.edgewall.org/">Babel</a> is installed, it&#8217;s extensive locale database is used, otherwise the framework falls back to using Django&#8217;s own formatting, included in Django 1.2 and upwards.</p>
+<blockquote>
+</blockquote>
+<div class="section" id="attributes">
+<h3 id="attributes">Attributes<a class="headerlink" href="#attributes" title="Permalink to this headline">¶</a></h3>
+<dl class="attribute">
+<dt id="Summary.Meta.locale">
+<!--[Summary.Meta.locale]--><tt class="descclassname">Summary.Meta.</tt><tt class="descname">locale</tt><a class="headerlink" href="#Summary.Meta.locale" title="Permalink to this definition">¶</a></dt>
+<dd>Locale to help provide automatic formatting of numbers. For example 9,765.34 would be 9.765,34 in Germany.     - If you are referencing the a method in the Summary instance, use <tt class="docutils literal"><span class="pre">&quot;self.XYZ&quot;</span></tt>. If it is callable, it is called with a single argument (the model instance).
+- You can also pass a callable, which is called with the model instance as an argument.</dd></dl>
+
+<dl class="attribute">
+<dt id="Summary.Meta.currency">
+<!--[Summary.Meta.currency]--><tt class="descclassname">Summary.Meta.</tt><tt class="descname">currency</tt><a class="headerlink" href="#Summary.Meta.currency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Relevant currency (eg ISO-4217 or just a symbol) for this Summary. Generally, only one currency is used for financial transactions, so the whole summary will be formatted using this currency.</p>
+<ul class="simple">
+<li>If you are referencing the a method in the Summary instance, use <tt class="docutils literal"><span class="pre">&quot;self.XYZ&quot;</span></tt>. If it is callable, it is called with a single argument (the model instance).</li>
+<li>You can also pass a callable, which is called with the model instance as an argument.</li>
+</ul>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Summary.Meta.decimal_html">
+<!--[Summary.Meta.decimal_html]--><tt class="descclassname">Summary.Meta.</tt><tt class="descname">decimal_html</tt><a class="headerlink" href="#Summary.Meta.decimal_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>The template for formatting numbers in html. This can be a string (or a callable producing a string) with placeholders for python string substitution.</p>
+<ul class="simple">
+<li>If you are referencing the a method in the Summary instance, use <tt class="docutils literal"><span class="pre">&quot;self.XYZ&quot;</span></tt>. If it is callable, it is called with a single argument (the model instance).</li>
+<li>You can also pass a callable, which is called with the model instance as an argument.</li>
+</ul>
+<p>A dictionary will be used with the following information available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="53%" />
+<col width="47%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Key</th>
+<th class="head">Example</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td><tt class="docutils literal"><span class="pre">value</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">&quot;1,234.56&quot;</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">curr_sym</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">&quot;$&quot;</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">decimal_sym</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">&quot;.&quot;</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">major</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">&quot;1,234&quot;</span></tt></td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">minor</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">&quot;56&quot;</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>The default value is:</p>
+<div class="highlight"><pre><span class="s">&#39;span class=&quot;money&quot;&gt;&#39;</span>
+<span class="s">&#39;&lt;span class=&quot;currency&quot;&gt;%(curr_sym)s&lt;/span&gt;</span><span class="si">%(major)s</span><span class="s">&#39;</span>
+<span class="s">&#39;&lt;span class=&quot;cents&quot;&gt;%(decimal_sym)s</span><span class="si">%(minor)s</span><span class="s">&lt;/span&gt;&#39;</span>
+<span class="s">&#39;&lt;/span&gt;&#39;</span>
+</pre></div>
+<p>Which would produce something equivalent to:</p>
+<div class="highlight"><pre><span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;money&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;currency&quot;</span><span class="nt">&gt;</span>$<span class="nt">&lt;/span&gt;</span>123<span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;cents&quot;</span><span class="nt">&gt;</span>.45<span class="nt">&lt;/span&gt;</span>
+<span class="nt">&lt;/span&gt;</span>
+</pre></div>
+</dd></dl>
+
+</div>
+<div class="section" id="id5">
+<h3 id="id5">Example<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<div class="highlight"><pre><span class="k">class</span> <span class="nc">MySummary</span><span class="p">(</span><span class="n">rollyourown</span><span class="o">.</span><span class="n">Summary</span><span class="p">):</span>
+    <span class="k">class</span> <span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">locale</span> <span class="o">=</span> <span class="s">&#39;en-AU&#39;</span>
+        <span class="n">currency</span> <span class="o">=</span> <span class="s">&#39;self.get_currency&#39;</span>
+
+    <span class="k">def</span> <span class="nf">get_currency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">instance</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">instance</span><span class="o">.</span><span class="n">currency</span> <span class="ow">or</span> <span class="s">&#39;AUD&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="what-next">
+<h2 id="what-next">What next?<a class="headerlink" href="#what-next" title="Permalink to this headline">¶</a></h2>
+<p>Once you have defined your Summary object, you now need to be able to use it. The <a class="reference external" href="commerce-usage.html#reference-commerce-usage"><em>Summary class usage reference</em></a> will be useful here.</p>
+</div>
 </div>
 
 
@@ -281,6 +371,12 @@ By default, this is <tt class="xref docutils literal"><span class="pre">False</s
 <li><a class="reference external" href="#id4">Example</a></li>
 </ul>
 </li>
+<li><a class="reference external" href="#meta-options">Meta Options</a><ul>
+<li><a class="reference external" href="#attributes">Attributes</a></li>
+<li><a class="reference external" href="#id5">Example</a></li>
+</ul>
+</li>
+<li><a class="reference external" href="#what-next">What next?</a></li>
 </ul>
 </li>
 </ul>
@@ -319,7 +415,7 @@ By default, this is <tt class="xref docutils literal"><span class="pre">False</s
         </div>
       </div>
               <h3>Last update:</h3>
-              <p class="topless">May 17, 2010</p>
+              <p class="topless">May 19, 2010</p>
           </div> 
         
       

@@ -37,9 +37,9 @@ class FormattedDecimal(Decimal):
         return obj
 
     def initialise_context(self, summary_instance):
-        self.locale = summary_instance._locale or settings.LANGUAGE_CODE
-        self.currency = summary_instance._currency
-        self.HTML = summary_instance._html or DEFAULT_DECIMAL_HTML
+        self.locale = summary_instance._meta.locale or settings.LANGUAGE_CODE
+        self.currency = summary_instance._meta.currency
+        self.HTML = summary_instance._meta.decimal_html or DEFAULT_DECIMAL_HTML
         if babel:
             self.locale = babel.core.Locale.parse(self.locale, sep="-")
 
