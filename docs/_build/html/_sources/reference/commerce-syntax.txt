@@ -63,6 +63,16 @@ Arguments
 
     The default value is ``"self.get_X_amount"``, where X is the name of the summary class attribute.
 
+.. attribute:: Items.editable
+
+    When the summary is displayed as a formset (see :ref:`Summary Formsets <reference-summary-formsets>`), these fields will be editable.
+    
+    - If ``editable`` is set to ``True``, a standard model formset is used with ``delete=True``.  If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).
+    - If ``editable`` is set to a string, a standard form field is used for the relevant attribute (using the items model as a reference). A ``delete`` form field is also provided. If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).
+    - If ``editable`` is set to a form, then this form is used. The custom form must have a ``.save()`` method if the data is to be saved.
+
+    To Customise the way forms are saved, you can overload the ``.save_form()`` method on the Summary class.
+
 .. attribute:: Items.cache_amount_as
 
     When a total involving these items is calculated, the amount of each item is stored as an attribute on the relevant model instance. The given string will be the name of this new attribute.  The default value is ``"AMOUNT"``.
@@ -139,6 +149,16 @@ Arguments
     - You can also pass a callable, which is called with the model instance as an argument.
 
     The default value is ``None``.
+
+.. attribute:: Extra.editable
+
+    When the summary is displayed as a formset (see :ref:`Summary Formsets <reference-summary-formsets>`), this field will be editable.
+    
+    - If ``editable`` is set to ``True``, a standard model form is used.  If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).
+    - If ``editable`` is set to a string, a standard form field is used for the relevant attribute. If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).
+    - If ``editable`` is set to a form, then this form is used. The custom form must have a ``.save()`` method if the data is to be saved.
+
+    To Customise the way forms are saved, you can overload the ``.save_form()`` method on the Summary class.
 
 Example
 ~~~~~~~

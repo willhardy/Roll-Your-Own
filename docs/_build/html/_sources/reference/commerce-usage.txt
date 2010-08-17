@@ -92,3 +92,24 @@ A ``FormattedDecimal`` works exactly like a decimal, except it has a few extra f
     $1.234,56
     >>> my_summary.total.html
     u'<span class="money"><span class="currency">$</span>1.234<span class="cents">,56</span></span>'
+
+.. _reference-summary-formsets:
+
+Summary Formsets
+================
+
+Editable statements using forms can be easily generated, once you have defined your fields as being editable (see :ref:`Summary Syntax <reference-commerce-syntax>`)::
+
+    >>> my_summary.formset
+    <Formset: >
+    >>> print my_summary.formset
+    <tr><td> ... etc
+    >>> print my_summary.forms.as_ul
+    <li> ... etc
+
+Note that non-editable fields are included for convenience. The remaining functionality should be familiar to Django developers::
+
+    >>> my_summary.forms.is_valid()
+    True
+    >>> my_summary.forms.save()
+

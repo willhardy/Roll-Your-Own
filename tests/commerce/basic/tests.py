@@ -7,7 +7,7 @@ Replace these with more appropriate tests for your application.
 
 from django.test import TestCase
 from models import Cart, Order, Product, CartItem, Voucher
-from commerce import CartSummary, OrderSummary
+from commerce import CartSummary, OrderSummary, SelfMetaSummary, ModelMetaSummary
 from decimal import Decimal
 from django.db.models import Sum
 from django.utils.datastructures import SortedDict
@@ -81,14 +81,41 @@ class Extras(TestCase):
         """ Tests that the included attribute can be set by a callable."""
         self.assertEqual(self.cart_summary.delivery.included, False)
 
+    def test_editable(self):
+        """ Tests that a form is provided. """
+        form = self.cart_summary.form()
+        data = {'items-TOTAL_FORMS': 0,
+                'items-INITIAL_FORMS': 0,
+                'items-MAX_NUM_FORMS': '',
+                'delivery-address': '123 Main St',
+                'discount_code': 'CDE',
+                }
+
+        form = self.cart_summary.form(data)
+        assert form.is_valid(), str(form.errors)
+        form.save()
+        self.assertEqual(self.cart.discount_code, 'CDE')
+        self.assertEqual(self.cart.address, '123 Main St')
+
+    def test_editable_errors(self):
+        form = self.cart_summary.form()
+        data = {'items-TOTAL_FORMS': 0,
+                'items-INITIAL_FORMS': 0,
+                'items-MAX_NUM_FORMS': '',
+                # 'delivery-address' missing
+                'discount_code': 'CDE',
+                }
+
+        form = self.cart_summary.form(data)
+        assert form.errors, "No error raised for form"
 
 class Items(TestCase):
 
     def setUp(self):
         self.cart = Cart.objects.create()
 
-        self.product_1 = Product.objects.create(price=Decimal("0.01"))
-        self.product_2 = Product.objects.create(price=Decimal("11.22"))
+        self.product_1 = Product.objects.create(price=Decimal("0.01"), name="ABC")
+        self.product_2 = Product.objects.create(price=Decimal("11.22"), name="CDE")
         self.item_1    = CartItem.objects.create(cart=self.cart, product=self.product_1)
         self.item_2    = CartItem.objects.create(cart=self.cart, product=self.product_2)
 
@@ -121,6 +148,20 @@ class Items(TestCase):
         Voucher.objects.all().update(percent=50)
         total_two = self.cart_summary.vouchers_total
         self.assertEqual(total_one, total_two)
+
+    def test_editable_table(self):
+        form = self.cart_summary.form()
+        self.assertEqual(form.as_table(), "")
+
+    def test_editable_table_data(self):
+        form = self.cart_summary.form()
+        data = form.table_data()
+        assert data
+        self.assertEqual(len(data), len(self.cart_summary._meta.elements))
+        self.assertEqual(len(data[0]), 3)
+        element_names = self.cart_summary._meta.elements.keys()
+        self.assertEqual([i[0] for i in data], element_names)
+        self.assertEqual([i[2] for i in data], [getattr(self.cart_summary, n) for n in element_names])
         
 
 class Totals(TestCase):
@@ -196,6 +237,8 @@ class GeneralTests(TestCase):
 
         self.cart_summary = CartSummary(instance=self.cart)
         self.order_summary = OrderSummary(instance=self.cart)
+        self.self_meta_summary = SelfMetaSummary(instance=self.cart)
+        self.model_meta_summary = ModelMetaSummary(instance=self.cart)
 
     def test_unicode(self):
         """ Tests the standard unicode output of a summary.  """
@@ -221,23 +264,30 @@ Total prevent negative  10019.09
         """ Checks that a meta attribute is created. """
         assert hasattr(self.cart_summary, '_meta'), 'No _meta attribute created when specified'
         assert hasattr(self.order_summary, '_meta'), 'No _meta attribute created automatically'
+        assert hasattr(self.self_meta_summary, '_meta'), 'No _meta attribute created when specified'
+        assert hasattr(self.model_meta_summary, '_meta'), 'No _meta attribute created when specified'
 
     def test_meta_locale(self):
         """ Checks that the locale is made available. """
         self.assertEqual(self.cart_summary._meta.locale, "en-AU")
         self.assertEqual(self.order_summary._meta.locale, None)
+        self.assertEqual(self.self_meta_summary._meta.locale, "de-DE")
+        self.assertEqual(self.model_meta_summary._meta.locale, "fr-FR")
 
     def test_meta_currency(self):
         """ Checks that the currency is made available. """
         self.assertEqual(self.cart_summary._meta.currency, "EUR")
         self.assertEqual(self.order_summary._meta.currency, None)
+        self.assertEqual(self.self_meta_summary._meta.currency, "AUD")
+        self.assertEqual(self.model_meta_summary._meta.currency, "USD")
 
     def test_meta_decimal_html(self):
         """ Checks that the decimal html format is made available. """
         self.assertEqual(self.cart_summary._meta.decimal_html, 
                          '<span class="minor">%(minor)s</span>')
-        self.assertEqual(self.order_summary._meta.decimal_html, 
-                         None)
+        self.assertEqual(self.order_summary._meta.decimal_html, None)
+        self.assertEqual(self.self_meta_summary._meta.decimal_html, u'1234')
+        self.assertEqual(self.model_meta_summary._meta.decimal_html, u'5678')
 
     def test_meta_items(self):
         """ Checks that the items are correctly provided, including ordering. """
@@ -259,6 +309,16 @@ Total prevent negative  10019.09
                         'total_prevent_negative', 'custom_total', 'cached_total'])
         self.assertEqual(self.order_summary._meta.totals.keys(), 
                         ['total'])
+
+    def test_meta_elements(self):
+        """ Checks that an elements attribute is creating with the correct ordering. """
+        self.assertEqual(self.cart_summary._meta.elements.keys(), 
+                        ['items', 'vouchers', 'payments',
+                        'my_commission', 'tax', 'discount', 'delivery',
+                        'items_total', 'items_pretax', 'vouchers_total', 'total', 
+                        'total_prevent_negative', 'custom_total', 'cached_total'])
+        self.assertEqual(self.order_summary._meta.elements.keys(), 
+                        ['items', 'delivery', 'total'])
 
     def test_non_model(self):
         class FakeModel(object):

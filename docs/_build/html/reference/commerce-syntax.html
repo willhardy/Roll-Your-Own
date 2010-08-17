@@ -105,6 +105,18 @@
 </dd></dl>
 
 <dl class="attribute">
+<dt id="Items.editable">
+<!--[Items.editable]--><tt class="descclassname">Items.</tt><tt class="descname">editable</tt><a class="headerlink" href="#Items.editable" title="Permalink to this definition">¶</a></dt>
+<dd><p>When the summary is displayed as a formset (see <a class="reference external" href="commerce-usage.html#reference-summary-formsets"><em>Summary Formsets</em></a>), these fields will be editable.</p>
+<ul class="simple">
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to <tt class="xref docutils literal"><span class="pre">True</span></tt>, a standard model formset is used with <tt class="docutils literal"><span class="pre">delete=True</span></tt>.  If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).</li>
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to a string, a standard form field is used for the relevant attribute (using the items model as a reference). A <tt class="docutils literal"><span class="pre">delete</span></tt> form field is also provided. If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).</li>
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to a form, then this form is used. The custom form must have a <tt class="docutils literal"><span class="pre">.save()</span></tt> method if the data is to be saved.</li>
+</ul>
+<p>To Customise the way forms are saved, you can overload the <tt class="docutils literal"><span class="pre">.save_form()</span></tt> method on the Summary class.</p>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="Items.cache_amount_as">
 <!--[Items.cache_amount_as]--><tt class="descclassname">Items.</tt><tt class="descname">cache_amount_as</tt><a class="headerlink" href="#Items.cache_amount_as" title="Permalink to this definition">¶</a></dt>
 <dd><p>When a total involving these items is calculated, the amount of each item is stored as an attribute on the relevant model instance. The given string will be the name of this new attribute.  The default value is <tt class="docutils literal"><span class="pre">&quot;AMOUNT&quot;</span></tt>.</p>
@@ -188,6 +200,18 @@ This could also simply be a form of &#8220;help text&#8221;.</p>
 <li>You can also pass a callable, which is called with the model instance as an argument.</li>
 </ul>
 <p>The default value is <tt class="xref docutils literal"><span class="pre">None</span></tt>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Extra.editable">
+<!--[Extra.editable]--><tt class="descclassname">Extra.</tt><tt class="descname">editable</tt><a class="headerlink" href="#Extra.editable" title="Permalink to this definition">¶</a></dt>
+<dd><p>When the summary is displayed as a formset (see <a class="reference external" href="commerce-usage.html#reference-summary-formsets"><em>Summary Formsets</em></a>), this field will be editable.</p>
+<ul class="simple">
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to <tt class="xref docutils literal"><span class="pre">True</span></tt>, a standard model form is used.  If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).</li>
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to a string, a standard form field is used for the relevant attribute. If the relevant instance is not a Django model instance, then a standard text field will be used, and the instance will be updated (but not saved).</li>
+<li>If <tt class="docutils literal"><span class="pre">editable</span></tt> is set to a form, then this form is used. The custom form must have a <tt class="docutils literal"><span class="pre">.save()</span></tt> method if the data is to be saved.</li>
+</ul>
+<p>To Customise the way forms are saved, you can overload the <tt class="docutils literal"><span class="pre">.save_form()</span></tt> method on the Summary class.</p>
 </dd></dl>
 
 </div>

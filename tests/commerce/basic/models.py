@@ -12,9 +12,20 @@ class Cart(models.Model):
     vouchers     = models.ManyToManyField('Voucher')
     date_created = models.DateTimeField(default=datetime.now)
     cached_total = models.DecimalField(max_digits=10, decimal_places=2, editable=False, blank=True, null=True)
+    discount_code = models.CharField(max_length=16, default="", blank=True)
+    address       = models.TextField(default="", blank=True)
 
     def delivery_included(self): 
         return False
+
+    def get_locale(self):
+        return 'fr-FR'
+
+    def get_currency(self):
+        return 'USD'
+
+    def get_decimal_html(self):
+        return u'5678'
 
 class CartItem(models.Model):
     product  = models.ForeignKey(Product)
@@ -25,12 +36,15 @@ class CartItem(models.Model):
         return self.product.price * self.quantity
 
     def __unicode__(self):
-        return u"%dx %s" % (self.quantity, self.product.name)
+        if self.product_id:
+            return u"%dx %s" % (self.quantity, self.product.name)
+        else:
+            return u"%dx ?" % (self.quantity, )
 
 class Order(models.Model):
-    items        = models.ManyToManyField(Product, through="OrderItem")
-    vouchers     = models.ManyToManyField('Voucher')
-    date_created = models.DateTimeField(default=datetime.now)
+    items         = models.ManyToManyField(Product, through="OrderItem")
+    vouchers      = models.ManyToManyField('Voucher')
+    date_created  = models.DateTimeField(default=datetime.now)
 
 class OrderItem(models.Model):
     product = models.ForeignKey(Product)

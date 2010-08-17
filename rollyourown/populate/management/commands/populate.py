@@ -5,7 +5,7 @@
      Author: Will Hardy (http://willhardy.com.au)
        Date: June 2008
       Usage: python manage.py populate appname
-  $Revision$
+  $Revision: 12 $
 
 Description: 
     Populates models for testing purposes with mildly sensible data.

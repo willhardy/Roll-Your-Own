@@ -168,6 +168,22 @@
 <span class="go">u&#39;&lt;span class=&quot;money&quot;&gt;&lt;span class=&quot;currency&quot;&gt;$&lt;/span&gt;1.234&lt;span class=&quot;cents&quot;&gt;,56&lt;/span&gt;&lt;/span&gt;&#39;</span>
 </pre></div>
 </div>
+<div class="section" id="summary-formsets">
+<span id="reference-summary-formsets"></span><h2 id="summary-formsets"><span id="reference-summary-formsets"></span>Summary Formsets<a class="headerlink" href="#summary-formsets" title="Permalink to this headline">¶</a></h2>
+<p>Editable statements using forms can be easily generated, once you have defined your fields as being editable (see <a class="reference external" href="commerce-syntax.html#reference-commerce-syntax"><em>Summary Syntax</em></a>):</p>
+<div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">formset</span>
+<span class="go">&lt;Formset: &gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">formset</span>
+<span class="go">&lt;tr&gt;&lt;td&gt; ... etc</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">my_summary</span><span class="o">.</span><span class="n">forms</span><span class="o">.</span><span class="n">as_ul</span>
+<span class="go">&lt;li&gt; ... etc</span>
+</pre></div>
+<p>Note that non-editable fields are included for convenience. The remaining functionality should be familiar to Django developers:</p>
+<div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">forms</span><span class="o">.</span><span class="n">is_valid</span><span class="p">()</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_summary</span><span class="o">.</span><span class="n">forms</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+</div>
 </div>
 
 
@@ -185,6 +201,7 @@
 <li><a class="reference external" href="">Summary instance methods</a><ul>
 <li><a class="reference external" href="#accessing-elements">Accessing elements</a></li>
 <li><a class="reference external" href="#formatting">Formatting</a></li>
+<li><a class="reference external" href="#summary-formsets">Summary Formsets</a></li>
 </ul>
 </li>
 </ul>
