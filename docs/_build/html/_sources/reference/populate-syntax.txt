@@ -1,5 +1,0 @@
-.. _reference-populate-syntax:
-
-================
-Populator syntax
-================
