@@ -6,7 +6,6 @@
     See unit tests for an example of usage.
 
 """
-__version__ = filter(str.isdigit, "$Revision: 16 $")
 __authors__ = ["Will Hardy <rollyourown@willhardy.com.au>"]
 __all__ = ( 'Summary', 'Extra', 'Items', 'Total',)
 
