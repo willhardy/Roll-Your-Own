@@ -12,6 +12,7 @@ setup(
     name = "RollYourOwn",
     version = "1.0.0dev1",
     packages = find_packages(exclude=["docs*", "tests*", "examples*"]),
+    namespace_packages = ["rollyourown"],
     install_requires = ['django>=1.0'],
     author = "Will Hardy",
     author_email = "rollyourown@hardysoftware.com.au",
