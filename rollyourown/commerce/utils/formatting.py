@@ -128,7 +128,6 @@ def get_format_modules(reverse=False, locale=None):
         locale = get_language()
 
     locale = to_locale(locale)
-    logging.debug("Locale: %s" % locale)
 
     if settings.FORMAT_MODULE_PATH:
         format_locations = [settings.FORMAT_MODULE_PATH + '.%s']

@@ -1,25 +1,26 @@
 # -*- coding: UTF-8 -*-
 from decimal import Decimal
 from django import template
+from django.utils.safestring import mark_safe
 import locale
 locale.setlocale(locale.LC_ALL, 'en_AU')
 register = template.Library()
  
 @register.filter()
-def currency(value):
+def currency(value, curr="$"):
     #string = locale.currency(value, grouping=True)
-    #return template.mark_safe(string)
-    return template.mark_safe(money_format(value, curr="$", neg='(', trailneg=")"))
+    #return mark_safe(string)
+    return mark_safe(money_format(value, curr=curr, neg='(', trailneg=")"))
 
 @register.filter()
-def html_currency(value):
+def html_currency(value, curr="$"):
     #string = locale.currency(value, grouping=True)
-    #return template.mark_safe(string)
-    return template.mark_safe(money_format(value, curr="$", html=True, neg='(', trailneg=")"))
+    #return mark_safe(string)
+    return mark_safe(money_format(value, curr=curr, html=True, neg='(', trailneg=")"))
 
 @register.filter()
-def short_currency(value):
-    output = template.mark_safe(money_format(value, places=2, curr="$", neg='(', trailneg=")"))
+def short_currency(value, curr="$"):
+    output = mark_safe(money_format(value, places=2, curr=curr, neg='(', trailneg=")"))
     if output.endswith(".00"):
         return output[:-3]
     else:
