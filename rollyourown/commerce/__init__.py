@@ -7,6 +7,7 @@
 
 """
 __authors__ = ["Will Hardy <rollyourown@willhardy.com.au>"]
-__all__ = ( 'Summary', 'Extra', 'Items', 'Total',)
+__all__ = ( 'Summary', 'Extra', 'Items', 'Total', 'json_summary')
 
 from summary import Summary, Extra, Items, Total
+from utils import json_summary
